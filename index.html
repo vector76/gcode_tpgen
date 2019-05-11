@@ -1,0 +1,375 @@
+<html>
+<head>
+<title>G-Code Test Pattern Generator</title>
+<style>
+.output {
+  font-family: monospace;
+  font-size: 8pt;
+}
+</style>
+<script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
+</head>
+<body>
+;Add G92 X0 Y0 Z0 at the beginning: <input type="checkbox" name="zero" checked><br>
+;Z level for pen-down:<input type="text" name="pen_d" value="-0.5"><br>
+;Z level for pen-up:<input type="text" name="pen_u" value="0.5"><br>
+;Rapid Feedrate (mm/min):<input type="text" name="rapid" value="2000"><br>
+;Raise/lower Feedrate:<input type="text" name="vertical" value="800"><br>
+;Draw Feedrate:<input type="text" name="drawspeed" value="1000"><br>
+;Mode:<br>
+;  x only: <input type="radio" name="mode" id="mode_x" checked><br>
+;  y only: <input type="radio" name="mode" id="mode_y"><br>
+;  x and y: <input type="radio" name="mode" id="mode_xy"><br>
+;  perimeter: <input type="radio" name="mode" id="mode_perim"><br>
+;Y Extent (mm):<input type="text" name="ysize" value="100"><br>
+;X Extent (mm):<input type="text" name="xsize" value="100"><br>
+<input type="button" value="Generate" onclick="generate()"> 
+  
+<div id="output" class="output"></div>
+<br/>
+
+<script>
+  function output_append(x) {
+    var output = document.getElementById('output');
+    var newcontent = document.createElement('div');
+    newcontent.innerHTML = x + "<br>";
+
+    while (newcontent.firstChild) {
+        output.appendChild(newcontent.firstChild);
+    }
+  }
+
+  function x_zig(xstart, xend, ymid, zup, zdn, rapid, vertical, drawspeed) {
+    for (var x=xstart; x <= xend; x++) {
+      var yend = ymid-0.5;
+      var ystart = yend-5.5;  // most draw from ymid-5.5 to ymid-0.5
+      if (x % 5 == 0) {
+        ystart = ystart - 2;
+      }
+      if (x % 10 == 0) {
+        ystart = ystart - 2;
+      }
+      output_append("G1 X" + x + " Y" + ystart + zup + " F" + rapid);
+      output_append("G1 X" + x + " Y" + ystart + zdn + " F" + vertical);
+      output_append("G1 X" + x + " Y" + yend + zdn + " F" + drawspeed);
+      output_append("G1 X" + x + " Y" + yend + zup + " F" + vertical);
+    }
+  }
+  
+  function x_zag(xstart, xend, ymid, zup, zdn, rapid, vertical, drawspeed) {
+    for (var x=xend; x >= xstart; x--) {
+      var ystart = ymid + 0.5;
+      var yend = ystart + 5.5; // most go from ymid+0.5 to ymid+6
+      if (x % 5 == 0) {
+        yend = yend + 2;   // 5 and 10 mm go from ymid+0.5 to ymid+8
+      }
+      if (x % 10 == 0) {
+        yend = yend + 2;   // 10 mm goes from ymid+0.5 to ymid+10
+      }
+      output_append("G1 X" + x + " Y" + ystart + zup + " F" + rapid);
+      output_append("G1 X" + x + " Y" + ystart + zdn + " F" + vertical);
+      output_append("G1 X" + x + " Y" + yend + zdn + " F" + drawspeed);
+      output_append("G1 X" + x + " Y" + yend + zup + " F" + vertical);
+    }
+  }
+  
+  function y_zig(xmid, ystart, yend, zup, zdn, rapid, vertical, drawspeed) {
+    for (var y=ystart; y <= yend; y++) {
+      var xend = xmid-0.5;
+      var xstart = xend-5.5;
+      if (y % 5 == 0) {
+        xstart = xstart - 2;
+      }
+      if (y % 10 == 0) {
+        xstart = xstart - 2;
+      }
+      output_append("G1 X" + xstart + " Y" + y + zup + " F" + rapid);
+      output_append("G1 X" + xstart + " Y" + y + zdn + " F" + vertical);
+      output_append("G1 X" + xend + " Y" + y + zdn + " F" + drawspeed);
+      output_append("G1 X" + xend + " Y" + y + zup + " F" + vertical);
+    }
+  }
+  
+  function y_zag(xmid, ystart, yend, zup, zdn, rapid, vertical, drawspeed) {
+    for (var y=yend; y >= ystart; y--) {
+      var xstart = xmid + 0.5;
+      var xend = xstart + 5.5;
+      if (y % 5 == 0) {
+        xend = xend + 2;
+      }
+      if (y % 10 == 0) {
+        xend = xend + 2;
+      }
+      output_append("G1 X" + xstart + " Y" + y + zup + " F" + rapid);
+      output_append("G1 X" + xstart + " Y" + y + zdn + " F" + vertical);
+      output_append("G1 X" + xend + " Y" + y + zdn + " F" + drawspeed);
+      output_append("G1 X" + xend + " Y" + y + zup + " F" + vertical);
+    }
+  }
+  
+  
+  function generate() {
+    // clear output in case it's been run already:
+    document.getElementById('output').innerHTML = "";
+    
+    var zero = document.getElementsByName("zero")[0].checked;
+    var pen_d = document.getElementsByName("pen_d")[0].value;
+    var pen_u = document.getElementsByName("pen_u")[0].value;
+    var rapid = document.getElementsByName("rapid")[0].value;
+    var vertical = document.getElementsByName("vertical")[0].value;
+    var drawspeed = document.getElementsByName("drawspeed")[0].value;
+    var ysize = document.getElementsByName("ysize")[0].value;
+    var xsize = document.getElementsByName("xsize")[0].value;
+    var mode = "";
+    if (document.getElementById("mode_x").checked) {
+      mode = "x";
+    }
+    if (document.getElementById("mode_y").checked) {
+      mode = "y";
+    }
+    if (document.getElementById("mode_xy").checked) {
+      mode = "xy";
+    }
+    if (document.getElementById("mode_perim").checked) {
+      mode = "perim";
+    }
+    
+    output_append("; pen down z level: " + pen_d);
+    output_append("; pen up z level: " + pen_u);
+    output_append("; rapid feedrate: " + rapid);
+    output_append("; raise/lower feedrate: " + vertical);
+    output_append("; drawing feedrate: " + drawspeed);
+    output_append("; x extent: " + xsize);
+    output_append("; y extent: " + ysize);
+    output_append("; mode: " + mode);
+    
+    var zup = " Z" + pen_u;
+    var zdn = " Z" + pen_d;
+    
+    if (zero) {
+      output_append("G92 X0 Y0 Z0");
+    }
+    
+    if (mode == "x" || mode == "xy" || mode == "perim") {
+      x_zig(0, xsize, 10, zup, zdn, rapid, vertical, drawspeed);
+      x_zag(0, xsize, 10, zup, zdn, rapid, vertical, drawspeed);
+    }
+    
+    if (mode == "y" || mode == "xy" || mode == "perim") {
+      y_zig(10, 0, ysize, zup, zdn, rapid, vertical, drawspeed);
+      y_zag(10, 0, ysize, zup, zdn, rapid, vertical, drawspeed);
+    }
+    
+    if (mode == "perim") {
+      x_zig(0, xsize, ysize-10, zup, zdn, rapid, vertical, drawspeed);
+      x_zag(0, xsize, ysize-10, zup, zdn, rapid, vertical, drawspeed);
+      y_zig(xsize-10, 0, ysize, zup, zdn, rapid, vertical, drawspeed);
+      y_zag(xsize-10, 0, ysize, zup, zdn, rapid, vertical, drawspeed);
+    }
+  }
+  
+  
+  function processWorkerCompiled(w) {
+    var result = [];
+    // result.push("Worker named " + w.WN + ":");
+    if (w.Interpreter.ScriptLocalArray.length == 0) {
+      result.push("No compiled instructions");
+    }
+    else {
+      result.push("Compiled instructions:");
+      var current = w.Interpreter.ScriptLocalArray[0].Instruction;
+      var inslist = w.Interpreter.ScriptLocalArray[0].Script.Instructions;  // list of instructions
+      for (var i=0; i < inslist.length; i++) {
+        var ins = inslist[i];
+        var iscur = (i == current) ? '> ' : '  ';  // cursor depending if this is the currently running instruction
+        result.push(iscur + ins.Ins + "," + ins.Var1 + "," + ins.Var2 + "," + ins.Var3 + "," + ins.Var4);
+      }
+    }
+    //console.log(result);
+    return result;
+  }
+  
+  
+  // recursive traversal of high instructions array, keeping track of level for indentation purposes
+  function traverse(result, harr, level) {
+    var indent = '  '.repeat(level);
+    for (var i=0; i < harr.length; i++) {
+      var content = harr[i].Type + ' ' + harr[i].ArgName + ' ' + harr[i].OT + ' ' + harr[i].V1;
+      if (harr[i].X != 0 && harr[i].y != 0) {
+        content = content + " (" + harr[i].X + ", " + harr[i].y + ")";
+      }
+      result.push(indent + content.replace(/  +/g, ' '));
+      if (harr[i].Children !== undefined) {
+        result = traverse(result, harr[i].Children, level+1);
+      }
+    }
+    return result;
+  }
+  
+  
+  function processWorkerHi(w) {
+    var result = [];
+    if (w.Interpreter.HighInstructionsArray === undefined) {
+      result.push("No high instructions array");
+    }
+    else {
+      result = traverse(result, w.Interpreter.HighInstructionsArray, 0);
+    }
+    //console.log(result);
+    return result;
+  }
+  
+  // Extract high-level program from DataStorageCrude (almost identical to processWorkerHi)
+  function processDscHi(dsc) {
+    var result = [];
+    if (dsc.HighInstructionsArray === undefined) {
+      result.push("No high instructions array");
+    }
+    else {
+      result = traverse(result, dsc.HighInstructionsArray, 0);
+    }
+    return result;
+  }
+  
+  
+  function workerInfo(w) {
+    var result = [];
+    result.push(w.WN);  // name
+    result.push('location: (' + w.TX + ', ' + w.TY + ')');
+    result.push('energy: ' + Math.floor(w.Energy * 10)/10);
+    return result;
+  }
+  
+  function workerInventory(w) {
+    var result = [];
+    var hands = [];
+    for (var i=0; i < w.Carry.CarryObjects.length; i++) {
+      if (w.Carry.CarryObjects[i].ID) {
+        hands.push("  " + w.Carry.CarryObjects[i].ID);
+      }
+    }
+    if (hands.length) {
+      result.push("Hands:");
+      result = result.concat(hands);
+    }
+    else {
+      result.push("(Hands empty)");
+    }
+    var inven = [];
+    for (var i=0; i < w.Inv.InvObjects.length; i++) {
+      if (w.Inv.InvObjects[i].ID) {
+        inven.push("  " + w.Inv.InvObjects[i].ID);
+      }
+    }
+    if (inven.length) {
+      result.push("Inventory:");
+      result = result.concat(inven);
+    }
+    else {
+      // Don't bother explicitly showing that inventory is empty
+      // result.push("(Inventory empty)");
+    }
+    
+    return result;
+  }
+  
+  
+  function currentState(w) {
+    var result = [];
+    result.push('Current state:');
+    for (var i=0; i < w.Interpreter.GlobalArray.length; i++) {
+      if (w.Interpreter.GlobalArray[i] != '') {
+        result.push("  Global" + i + " = " + w.Interpreter.GlobalArray[i]);
+      }
+    }
+    return result;
+  }
+  
+  
+  function handleFileSelect(evt) {
+    var f = evt.target.files[0]; // get first element of FileList object
+    if (f === undefined) {
+      return;
+    }
+    
+    var reader = new FileReader();
+    
+    reader.onload = function(event) {
+      // event.target.result has the contents of the file, parse it as JSON into a big object
+      var s = JSON.parse(event.target.result);
+      var version = s.Version;  // may be useful if things change...
+      // loop through Objects to find Workers
+      var trows = [];    // Worker (and WorkerCrude) table
+      var dscrows = [];  // data storage crude table
+      for (var i = 0, len = s.Objects.length; i < len; i++) {
+        if (s.Objects[i].ID == "Worker" || s.Objects[i].ID == "WorkerCrude" || s.Objects[i].ID == "WorkerSteam") {
+          // Process worker
+          var winfo = '<pre>' + workerInfo(s.Objects[i]).join('<br>') + '<br>' + '<br>' +
+              workerInventory(s.Objects[i]).join('<br>') + '</pre>';
+          var htext = '<pre>' + processWorkerHi(s.Objects[i]).join('<br>') + '</pre>';
+          var ctext = '<pre>' + processWorkerCompiled(s.Objects[i]).join('<br>') + '</pre>';
+          if (ctext != '<pre>No compiled instructions</pre>') {
+            // get worker state variables
+            var wstate = '<pre>' + currentState(s.Objects[i]).join('<br>') + '</pre>';
+            // add expand/collapse
+            ctext = '<div class="header">Expand</div>' + '<div class="content">' + 
+              '<table style="border: none"><tr style="border: none"><td style="border: none">' + ctext + '</td><td valign="top" style="border: none">' + wstate + '</td></tr></table>' +
+              '</div>';
+          }
+          else {  
+            // fine to use <td><pre>...</pre></td> since that's how the high-level code is shown (i.e. no need for div)
+          }
+          var rowclass = s.Objects[i].ID;
+          trows.push("<tr class='" + rowclass + "'><td valign='top'>" + winfo + 
+            "</td><td valign='top'>" + htext + "</td><td valign='top'>" + ctext + "</td></tr>");
+        }
+        else if (s.Objects[i].ID == "DataStorageCrude") {
+          var htext = '<pre>' + processDscHi(s.Objects[i]).join('<br>') + '</pre>';
+          var loc = '<pre>' + 'location: (' + s.Objects[i].TX + ', ' + s.Objects[i].TY + ')' + '<br>' +
+            'name: ' + s.Objects[i].Name + '</pre>';
+          dscrows.push("<tr class='dataStorageCrude'><td valign='top'>" + loc + 
+            "</td><td valign='top'>" + htext + "</td></tr>");
+        }
+        else if (s.Objects[i].ID == "FarmerPlayer") {
+          var carried = s.Objects[i].Carry.CarryObjects.concat(s.Objects[i].Inv.InvObjects);
+          for (var j=0; j < carried.length; j++) {
+            if (carried[j].ID == "DataStorageCrude") {
+              // Very ugly copy-paste needs to be properly factored
+              var htext = '<pre>' + processDscHi(carried[j]).join('<br>') + '</pre>';
+              var loc = '<pre>' + 'location: player inventory  ' + '<br>' +
+                'name: ' + carried[j].Name + '</pre>';
+              dscrows.push("<tr class='dataStorageCrude'><td valign='top'>" + loc + 
+                "</td><td valign='top'>" + htext + "</td></tr>");
+            }
+          }
+        }
+      }
+      var table = '<h2><span class="Worker">Basic Workerbots</span>, <span class="WorkerCrude">Crude Workerbots</span>, and <span class="WorkerSteam">Steam Workerbots</span>:</h2><table>' + trows.join('') + '</table>';
+      var dsctable = '';
+      if (dscrows.length) {
+        dsctable = '<h2>Crude data storage:</h2><table>' + dscrows.join('') + '</table>';
+      }
+      document.getElementById('output').innerHTML = dsctable + table;
+      
+      $(".header").click(function () {
+          $header = $(this);
+          //getting the next element
+          $content = $header.next();
+          //open up the content needed - toggle the slide- if visible, slide up, if not slidedown.
+          $content.slideToggle(200, function () {
+              //execute this after slideToggle is done
+              //change text of header based on visibility of content div
+              $header.text(function () {
+                  //change text based on condition
+                  return $content.is(":visible") ? "Collapse" : "Expand";
+              });
+          });
+      });
+    };
+    
+    reader.readAsText(f);
+  }
+  
+</script>
+</body>
+</html>
