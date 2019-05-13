@@ -10,30 +10,34 @@
 <script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
 </head>
 <body>
-;Add G92 X0 Y0 Z0 at the beginning: <input type="checkbox" name="zero" checked><br>
-;Z level for pen-down:<input type="text" name="pen_d" value="-0.5"><br>
-;Z level for pen-up:<input type="text" name="pen_u" value="0.5"><br>
-;Rapid Feedrate (mm/min):<input type="text" name="rapid" value="2000"><br>
-;Raise/lower Feedrate:<input type="text" name="vertical" value="800"><br>
-;Draw Feedrate:<input type="text" name="drawspeed" value="1000"><br>
-;Mode:<br>
-;  x only: <input type="radio" name="mode" id="mode_x" checked><br>
-;  y only: <input type="radio" name="mode" id="mode_y"><br>
-;  x and y: <input type="radio" name="mode" id="mode_xy"><br>
-;  perimeter: <input type="radio" name="mode" id="mode_perim"><br>
-;Y Extent (mm):<input type="text" name="ysize" value="100"><br>
-;X Extent (mm):<input type="text" name="xsize" value="100"><br>
-<input type="button" value="Generate" onclick="generate()"> 
-<h2>; After pressing "Generate", simply copy-paste the entire window contents into a text file (Ctrl-A to select all)</h2>
-; Github repository here: <a href="https://github.com/vector76/gcode_tpgen">https://github.com/vector76/gcode_tpgen</a>
-<div id="output" class="output"></div>
-<br/>
+<table>
+<tr><td>;Start with G92 X0 Y0 Z0:</td><td><input type="checkbox" name="zero" checked></td></tr>
+<tr><td>;Z level for pen-down:</td><td><input type="text" name="pen_d" value="-0.5"></td></tr>
+<tr><td>;Z level for pen-up:</td><td><input type="text" name="pen_u" value="0.5"></td></tr>
+<tr><td>;Rapid Feedrate (mm/min):</td><td><input type="text" name="rapid" value="2000"></td></tr>
+<tr><td>;Raise/lower Feedrate:</td><td><input type="text" name="vertical" value="800"></td></tr>
+<tr><td>;Draw Feedrate:</td><td><input type="text" name="drawspeed" value="1000"></td></tr>
+<tr><td>;Mode:</td><td>
+<input type="radio" name="mode" id="mode_x" checked> ;X ruler<br>
+<input type="radio" name="mode" id="mode_y"> ;Y ruler<br>
+<input type="radio" name="mode" id="mode_xy"> ;X and Y ruler<br>
+<input type="radio" name="mode" id="mode_perim"> ;Perimeter ruler<br>
+<input type="radio" name="mode" id="mode_ztest_corners"> ;Z test four corners<br>
+<input type="radio" name="mode" id="mode_ztest_grid"> ;Z test grid</td></tr>
+<tr><td>;X Extent (mm):</td><td><input type="text" name="xsize" value="100"></td></tr>
+<tr><td>;Y Extent (mm):</td><td><input type="text" name="ysize" value="100"></td></tr>
+<tr><td>;Z Test Cross Size (mm):</td><td><input type="text" name="zxsize" value="14"></td></tr>
+<tr><td></td><td><input type="button" value="Generate" onclick="generate()"></td></tr>
+</table>
+;Github repository here: <a href="https://github.com/vector76/gcode_tpgen">https://github.com/vector76/gcode_tpgen</a><br>
+<pre id="output" class="output">
+</pre>
 
 <script>
   function output_append(x) {
     var output = document.getElementById('output');
     var newcontent = document.createElement('div');
-    newcontent.innerHTML = x + "<br>";
+    newcontent.innerHTML = x + "\n";
 
     while (newcontent.firstChild) {
         output.appendChild(newcontent.firstChild);
@@ -108,6 +112,25 @@
     }
   }
   
+  function z_test(x, y, size, zup, zdn, rapid, drawspeed) {
+    var x0 = x - size/2;
+    var x1 = x + size/2;
+    var y0 = y - size/2;
+    var y1 = y + size/2;
+    // convert to strings, keeping three decimals
+    x0 = x0.toFixed(3);
+    x1 = x1.toFixed(3);
+    y0 = y0.toFixed(3);
+    y1 = y1.toFixed(3);
+    x = x.toFixed(3);
+    y = y.toFixed(3);
+    output_append("G1 X" + x0 + " Y" + y0 + zup + " F" + rapid);
+    output_append("G1 X" + x + " Y" + y + zdn + " F" + drawspeed);
+    output_append("G1 X" + x1 + " Y" + y1 + zup + " F" + drawspeed);
+    output_append("G1 X" + x0 + " Y" + y1 + zup + " F" + rapid);
+    output_append("G1 X" + x + " Y" + y + zdn + " F" + drawspeed);
+    output_append("G1 X" + x1 + " Y" + y0 + zup + " F" + drawspeed);
+  }
   
   function generate() {
     // clear output in case it's been run already:
@@ -121,6 +144,7 @@
     var drawspeed = document.getElementsByName("drawspeed")[0].value;
     var ysize = document.getElementsByName("ysize")[0].value;
     var xsize = document.getElementsByName("xsize")[0].value;
+    var zxsize = document.getElementsByName("zxsize")[0].value;
     var mode = "";
     if (document.getElementById("mode_x").checked) {
       mode = "x";
@@ -133,6 +157,12 @@
     }
     if (document.getElementById("mode_perim").checked) {
       mode = "perim";
+    }
+    if (document.getElementById("mode_ztest_corners").checked) {
+      mode = "ztest_corners";
+    }
+    if (document.getElementById("mode_ztest_grid").checked) {
+      mode = "ztest_grid";
     }
     
     output_append("; pen down z level: " + pen_d);
@@ -166,6 +196,59 @@
       x_zag(0, xsize, ysize-10, zup, zdn, rapid, vertical, drawspeed);
       y_zig(xsize-10, 0, ysize, zup, zdn, rapid, vertical, drawspeed);
       y_zag(xsize-10, 0, ysize, zup, zdn, rapid, vertical, drawspeed);
+    }
+    
+    if (mode == "ztest_corners") {
+      output_append("G1" + zup + " F" + vertical);
+      z_test(zxsize/2, zxsize/2, zxsize, zup, zdn, rapid, drawspeed);
+      z_test(xsize-zxsize/2, zxsize/2, zxsize, zup, zdn, rapid, drawspeed);
+      z_test(xsize-zxsize/2, ysize-zxsize/2, zxsize, zup, zdn, rapid, drawspeed);
+      z_test(zxsize/2, ysize-zxsize/2, zxsize, zup, zdn, rapid, drawspeed);
+    }
+
+    if (mode == "ztest_grid") {
+      output_append("G1" + zup + " F" + vertical);
+      // minimum 1 mm space between X marks: N*zxsize+(N-1)*space <= xsize (or ysize)
+      var space = 1;
+      var num_x = Math.floor((xsize+space)/(zxsize+space));
+      var num_y = Math.floor((ysize+space)/(zxsize+space));
+      if (num_x < 2 || num_y < 2) {
+        output_append("; not enough room for grid");
+      }
+      else {
+        var step_x = (xsize-zxsize)/(num_x-1);
+        var step_y = (ysize-zxsize)/(num_y-1);
+        for (var iy=0; iy < num_y; iy++) {
+          if (iy % 2 == 0) {
+            for (var ix=0; ix < num_x; ix++) {
+              z_test(zxsize/2+ix*step_x, zxsize/2+iy*step_y, zxsize, zup, zdn, rapid, drawspeed);
+            }
+          }
+          else {
+            for (var ix=num_x-1; ix >= 0; ix--) {
+              z_test(zxsize/2+ix*step_x, zxsize/2+iy*step_y, zxsize, zup, zdn, rapid, drawspeed);
+            }
+          }
+        }
+      }
+    }
+
+    download('testpattern.gcode', document.getElementById('output').innerHTML);
+  }
+  
+  
+  function download(filename, text) {
+    var pom = document.createElement('a');
+    pom.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+    pom.setAttribute('download', filename);
+
+    if (document.createEvent) {
+      var event = document.createEvent('MouseEvents');
+      event.initEvent('click', true, true);
+      pom.dispatchEvent(event);
+    }
+    else {
+      pom.click();
     }
   }
 </script>
