@@ -23,10 +23,14 @@
 <input type="radio" name="mode" id="mode_xy"> ;X and Y ruler<br>
 <input type="radio" name="mode" id="mode_perim"> ;Perimeter ruler<br>
 <input type="radio" name="mode" id="mode_ztest_corners"> ;Z test four corners<br>
-<input type="radio" name="mode" id="mode_ztest_grid"> ;Z test grid</td></tr>
+<input type="radio" name="mode" id="mode_ztest_grid"> ;Z test grid<br>
+<input type="radio" name="mode" id="mode_dense_segments"> ;Dense segments (many very short x segments end-to-end)</td></tr>
 <tr><td>;X Extent (mm):</td><td><input type="text" name="xsize" value="100"></td></tr>
 <tr><td>;Y Extent (mm):</td><td><input type="text" name="ysize" value="100"></td></tr>
 <tr><td>;Z Test Cross Size (mm):</td><td><input type="text" name="zxsize" value="14"></td></tr>
+<tr><td>;Dense segments min (mm):</td><td><input type="text" name="dense_minseg" value="0.02"></td></tr>
+<tr><td>;Dense segments max (mm):</td><td><input type="text" name="dense_maxseg" value="0.5"></td></tr>
+<tr><td>;Save bandwidth:</td><td><input type="checkbox" name="dense_efficient"></td></tr>
 <tr><td></td><td><input type="button" value="Generate" onclick="generate()"></td></tr>
 </table>
 ;Github repository here: <a href="https://github.com/vector76/gcode_tpgen">https://github.com/vector76/gcode_tpgen</a><br>
@@ -44,6 +48,33 @@
     }
   }
 
+  function dense_x_segments(seglength, xstart, xend, y, zup, zdn, rapid, vertical, drawspeed, efficient) {
+    var nsegs = Math.floor(Math.abs(xend-xstart)/seglength);
+    var xdir = (xend > xstart) ? 1 : -1;
+    output_append("G1 X" + xstart + " Y" + y + zup + " F" + rapid);
+    output_append("G1" + zdn + " F" + vertical);
+    for (var i=1; i < nsegs; i++) {
+      var x = xstart + i * seglength * xdir;
+      if (efficient) {
+        // bare minimum to save bandwidth
+        if (i == 0) {
+          // convert to string, keeping four decimals
+          x = x.toFixed(4);
+          output_append("G1 X" + x + " F" + drawspeed);
+        }
+        else {
+          x = x.toFixed(4);
+          output_append("G1 X" + x);
+        }
+      }
+      else {
+        x = x.toFixed(4);
+        output_append("G1 X" + x + " Y" + y + zdn + " F" + drawspeed);
+      }
+    }
+    output_append("G1" + zup + " F" + vertical);
+  }
+  
   function x_zig(xstart, xend, ymid, zup, zdn, rapid, vertical, drawspeed) {
     for (var x=xstart; x <= xend; x++) {
       var yend = ymid-0.5;
@@ -137,14 +168,17 @@
     document.getElementById('output').innerHTML = "";
     
     var zero = document.getElementsByName("zero")[0].checked;
-    var pen_d = document.getElementsByName("pen_d")[0].value;
-    var pen_u = document.getElementsByName("pen_u")[0].value;
-    var rapid = document.getElementsByName("rapid")[0].value;
-    var vertical = document.getElementsByName("vertical")[0].value;
-    var drawspeed = document.getElementsByName("drawspeed")[0].value;
-    var ysize = document.getElementsByName("ysize")[0].value;
-    var xsize = document.getElementsByName("xsize")[0].value;
-    var zxsize = document.getElementsByName("zxsize")[0].value;
+    var pen_d = parseFloat(document.getElementsByName("pen_d")[0].value);
+    var pen_u = parseFloat(document.getElementsByName("pen_u")[0].value);
+    var rapid = parseFloat(document.getElementsByName("rapid")[0].value);
+    var vertical = parseFloat(document.getElementsByName("vertical")[0].value);
+    var drawspeed = parseFloat(document.getElementsByName("drawspeed")[0].value);
+    var ysize = parseFloat(document.getElementsByName("ysize")[0].value);
+    var xsize = parseFloat(document.getElementsByName("xsize")[0].value);
+    var zxsize = parseFloat(document.getElementsByName("zxsize")[0].value);
+    var dense_minseg = parseFloat(document.getElementsByName("dense_minseg")[0].value);
+    var dense_maxseg = parseFloat(document.getElementsByName("dense_maxseg")[0].value);
+    var dense_efficient = document.getElementsByName("dense_efficient")[0].checked;
     var mode = "";
     if (document.getElementById("mode_x").checked) {
       mode = "x";
@@ -163,6 +197,9 @@
     }
     if (document.getElementById("mode_ztest_grid").checked) {
       mode = "ztest_grid";
+    }
+    if (document.getElementById("mode_dense_segments").checked) {
+      mode = "dense_segments";
     }
     
     output_append("; pen down z level: " + pen_d);
@@ -230,6 +267,16 @@
             }
           }
         }
+      }
+    }
+    
+    if (mode == "dense_segments") {
+      output_append("G1" + zup + " F" + vertical);
+      var ylines = Math.floor(ysize) + 1;
+      for (var y=0; y < ylines; y++) {
+        seglength = dense_minseg + (dense_maxseg-dense_minseg)*y/(ylines-1);
+        output_append("; drawing segments of length " + seglength);
+        dense_x_segments(seglength, 0, xsize, y, zup, zdn, rapid, vertical, drawspeed, dense_efficient);
       }
     }
 
