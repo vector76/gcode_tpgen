@@ -11,33 +11,160 @@
 </head>
 <body>
 <table>
-<tr><td>;Start with G92 X0 Y0 Z0:</td><td><input type="checkbox" name="zero" checked></td></tr>
-<tr><td>;Z level for pen-down:</td><td><input type="text" name="pen_d" value="-0.5"></td></tr>
-<tr><td>;Z level for pen-up:</td><td><input type="text" name="pen_u" value="0.5"></td></tr>
-<tr><td>;Rapid Feedrate (mm/min):</td><td><input type="text" name="rapid" value="2000"></td></tr>
-<tr><td>;Raise/lower Feedrate:</td><td><input type="text" name="vertical" value="800"></td></tr>
-<tr><td>;Draw Feedrate:</td><td><input type="text" name="drawspeed" value="1000"></td></tr>
-<tr><td>;Mode:</td><td>
-<input type="radio" name="mode" id="mode_x" checked> ;X ruler<br>
-<input type="radio" name="mode" id="mode_y"> ;Y ruler<br>
-<input type="radio" name="mode" id="mode_xy"> ;X and Y ruler<br>
-<input type="radio" name="mode" id="mode_perim"> ;Perimeter ruler<br>
-<input type="radio" name="mode" id="mode_ztest_corners"> ;Z test four corners<br>
-<input type="radio" name="mode" id="mode_ztest_grid"> ;Z test grid<br>
-<input type="radio" name="mode" id="mode_dense_segments"> ;Dense segments (many very short x segments end-to-end)</td></tr>
-<tr><td>;X Extent (mm):</td><td><input type="text" name="xsize" value="100"></td></tr>
-<tr><td>;Y Extent (mm):</td><td><input type="text" name="ysize" value="100"></td></tr>
-<tr><td>;Z Test Cross Size (mm):</td><td><input type="text" name="zxsize" value="14"></td></tr>
-<tr><td>;Dense segments min (mm):</td><td><input type="text" name="dense_minseg" value="0.02"></td></tr>
-<tr><td>;Dense segments max (mm):</td><td><input type="text" name="dense_maxseg" value="0.5"></td></tr>
-<tr><td>;Save bandwidth:</td><td><input type="checkbox" name="dense_efficient"></td></tr>
+<tr><td>
+<table style="width: 360px;">
+<tr><td>Mode:</td><td>
+<input type="radio" name="mode" value="x" checked> X ruler<br>
+<input type="radio" name="mode" value="y"> Y ruler<br>
+<input type="radio" name="mode" value="xy"> X and Y ruler<br>
+<input type="radio" name="mode" value="perim"> Perimeter ruler<br>
+<input type="radio" name="mode" value="ztest_corners"> Z test four corners<br>
+<input type="radio" name="mode" value="ztest_grid"> Z test grid<br>
+<input type="radio" name="mode" value="dense_segments"> Dense segments<br>
+<input type="radio" name="mode" value="accel"> Acceleration<br>
+<input type="radio" name="mode" value="accel_jerk"> Acceleration and jerk<br>
+<input type="radio" name="mode" value="text"> Text</td></tr>
+<tr><td>Start with G92 X0 Y0 Z0:</td><td><input type="checkbox" name="zero" checked></td></tr>
+<tr><td>Z level for pen-down:</td><td><input type="text" name="pen_d" value="-0.5", size="6"> mm</td></tr>
+<tr><td>Z level for pen-up:</td><td><input type="text" name="pen_u" value="0.5", size="6"> mm</td></tr>
+<tr><td>Rapid Feedrate:</td><td><input type="text" name="rapid" value="2000", size="6"> mm/min</td></tr>
+<tr><td>Raise/lower Feedrate:</td><td><input type="text" name="vertical" value="800", size="6"> mm/min</td></tr>
+<tr><td>Draw Feedrate:</td><td><input type="text" name="drawspeed" value="1000", size="6"> mm/min</td></tr>
+<tr><td>X Extent:</td><td><input type="text" name="xsize" value="100", size="6"> mm</td></tr>
+<tr><td>Y Extent:</td><td><input type="text" name="ysize" value="100", size="6"> mm</td></tr>
+<tr><td>Z Test Cross Size:</td><td><input type="text" name="zxsize" value="14", size="6"> mm</td></tr>
+<tr><td>Dense segments min:</td><td><input type="text" name="dense_minseg" value="0.02", size="6"> mm</td></tr>
+<tr><td>Dense segments max:</td><td><input type="text" name="dense_maxseg" value="0.5", size="6"> mm</td></tr>
+<tr><td>Save bandwidth:</td><td><input type="checkbox" name="dense_efficient"></td></tr>
 <tr><td></td><td><input type="button" value="Generate" onclick="generate()"></td></tr>
 </table>
-;Github repository here: <a href="https://github.com/vector76/gcode_tpgen">https://github.com/vector76/gcode_tpgen</a><br>
+</td><td style="vertical-align:top">
+<div id="ruler_desc">
+<h1>Ruler Mode</h1>
+This mode draws many short (~10 mm) segments 1mm apart, with the end result resembling a ruler. These rulers are drawn in pairs, with two rulers drawn next to each other, but drawn in opposite directions.
+<p>
+These are potentially useful for identifying errors in steps per mm, not only for uniform spacing error, but also for nonuniform errors in spacing.  These should be uncommon but the test pattern can help identify it or rule it out.  By drawing two rulers in opposite directions, backlash (or other similar effects) can be detected.  The "perimeter ruler" can also be used to determine whether the machine is square by comparing the diagonals (although it is not a particularly efficient test pattern for just determining squareness).
+<ul><li>
+X ruler draws a pair of adjacent rulers along the positive X axis.  The "X Extent" setting determines the length to be created.
+</li><li>
+Y ruler draws a pair of adjacent rulers along the positive Y axis.  The "Y Extent" setting determines the length to be created.
+</li><li>
+X and Y ruler draws both of the above.
+</li><li>
+Perimeter ruler draws four (pairs of) rulers around the perimeter within a rectangle whose dimensions are specified by X extent and Y extent.
+</li><ul>
+</div>
+<div id="ztest_desc">
+<h1>Z-Test Mode</h1>
+These modes, Z-Test four corners and Z-Test grid, are for checking whether the work surface is level and flat.
+<p>
+These work by drawing "X" shaped marks, where the pen descends (lowers Z) at a shallow angle as it approaches the center of the X, and then slowly rises (increasing Z) as it moves away from the center of the X.  Small differences in the height of the surface create longer or shorter pen marks, effectively amplifying surface height errors to be more easily visible.
+<p>
+The Z Test Cross Size setting specifies the horizontal and vertical dimension of the "X" shape.  The default value of 14 mm has a corner-to-corner diagonal length of about 20 mm, or corner-to-center length of about 10 mm.  With a Z travel of 1 mm (from +0.5 to -0.5) the shallow descent and ascent is at a slope of about 1:10.  This means a Z displacement is reflected in segment length amplified by a factor of 20.
+<p>
+For Z-Test grid mode, as many as possible "X" shapes are fit, evenly spaced, within the specified X and Y extent.
+</div>
+<div id="dense_seg_desc">
+<h1>Dense Segments</h1>
+To test parsing and communication speed, this generates line segments that are drawn using a large number of very short G1 segments end-to-end in the same direction.
+<p>
+The lines are drawn in the positive X direction, and the total length is determined by X Extent.
+
+Multiple subdivision lengths are tested, each offset by 1 mm in the Y direction.  The Y Extent determines the Y size of the final drawn pattern, which is also the number of subdivision lengths to be tested.  The "Dense segments min" is the smallest subdivision length that is tested, and the "Dense segments max" is the largest subdivision length.  For each 1 mm increment in the Y direction, the subdivision length is increased linearly between the min and max.
+<p>
+The g-code also contains comments showing the subdivision lengths before each line is drawn.
+<p>
+As an additional option to see the possible influence on processing speed, a more efficient mode can be enabled by checking "Save bandwidth".  This generates the same toolpath but does not repeat the Z, Y, or F values any more than necessary.
+</div>
+<div id="accel_desc">
+<h1>Acceleration Not Yet Implemented</h1>
+Eventually will generate gcode to test acceleration, assuming "junction deviation" approach is being used.
+</div>
+<div id="accel_jerk_desc">
+<h1>Acceleration and Jerk Not Yet Implemented</h1>
+Eventually will generate gcode to test acceleration and jerk settings, assuming classic "jerk" approach is being used instead of junction deviation.
+</div>
+<div id="text_desc">
+<h1>Text Generation Not Yet Implemented</h1>
+Eventually will generate toolpaths from text, using a fixed-width font, which is potentially useful for ASCII art.
+<p>
+<span style="color:red">This requires firmware support for G5 (Bezier splines)!</span>  This is not enabled by default in MPCNC firmware, but it is fairly straightforward to enable.
+</div>
+</td></tr></table>
+<div>
+Text:<br>
+<textarea rows="5" cols="40" name="text_input"></textarea>
+</div>
+Github repository here: <a href="https://github.com/vector76/gcode_tpgen">https://github.com/vector76/gcode_tpgen</a><br>
+Questions, suggestions, feature requests are welcome.
 <pre id="output" class="output">
 </pre>
 
 <script>
+  $("input[name=mode]").click(function () { show_options($(this).val()); });
+
+  show_options($("input[name=mode]:checked").val());
+  
+  function show_options (mode) {
+    // var mode = $(this).val();
+    // zero, pen_d, pen_u, rapid, vertical, drawspeed are always shown
+    // xsize, ysize are also always shown
+    if (mode == "x" || mode == "y" || mode == "xy" || mode == "perim") {
+      $("div[id=ruler_desc]").show();
+    }
+    else {
+      $("div[id=ruler_desc]").hide();
+    }
+    
+    // zxsize is only used for ztest_corners and ztest_grid
+    if (mode == "ztest_corners" || mode == "ztest_grid") {
+      $("input[name=zxsize]").parent().parent().show();
+      $("div[id=ztest_desc]").show();
+    }
+    else {
+      $("input[name=zxsize]").parent().parent().hide();
+      $("div[id=ztest_desc]").hide();
+    }
+    
+    // dense_minseg and dense_maxseg and dense_efficient are only shown for dense_segments test
+    if (mode == "dense_segments") {
+      $("input[name=dense_minseg]").parent().parent().show();
+      $("input[name=dense_maxseg]").parent().parent().show();
+      $("input[name=dense_efficient]").parent().parent().show();
+      $("div[id=dense_seg_desc]").show();
+    }
+    else {
+      $("input[name=dense_minseg]").parent().parent().hide();
+      $("input[name=dense_maxseg]").parent().parent().hide();
+      $("input[name=dense_efficient]").parent().parent().hide();
+      $("div[id=dense_seg_desc]").hide();
+    }
+    
+    if (mode == "accel") {
+      $("div[id=accel_desc]").show();
+    }
+    else {
+      $("div[id=accel_desc]").hide();
+    }
+    
+    if (mode == "accel_jerk") {
+      $("div[id=accel_jerk_desc]").show();
+    }
+    else {
+      $("div[id=accel_jerk_desc]").hide();
+    }
+    
+    if (mode == "text") {
+      $("textarea[name=text_input]").parent().show();
+      $("div[id=text_desc]").show();
+    }
+    else {
+      $("textarea[name=text_input]").parent().hide();
+      $("div[id=text_desc]").hide();
+    }
+    
+  };
+
   function output_append(x) {
     var output = document.getElementById('output');
     var newcontent = document.createElement('div');
@@ -57,7 +184,7 @@
       var x = xstart + i * seglength * xdir;
       if (efficient) {
         // bare minimum to save bandwidth
-        if (i == 0) {
+        if (i == 1) {
           // convert to string, keeping four decimals
           x = x.toFixed(4);
           output_append("G1 X" + x + " F" + drawspeed);
@@ -167,40 +294,19 @@
     // clear output in case it's been run already:
     document.getElementById('output').innerHTML = "";
     
-    var zero = document.getElementsByName("zero")[0].checked;
-    var pen_d = parseFloat(document.getElementsByName("pen_d")[0].value);
-    var pen_u = parseFloat(document.getElementsByName("pen_u")[0].value);
-    var rapid = parseFloat(document.getElementsByName("rapid")[0].value);
-    var vertical = parseFloat(document.getElementsByName("vertical")[0].value);
-    var drawspeed = parseFloat(document.getElementsByName("drawspeed")[0].value);
-    var ysize = parseFloat(document.getElementsByName("ysize")[0].value);
-    var xsize = parseFloat(document.getElementsByName("xsize")[0].value);
-    var zxsize = parseFloat(document.getElementsByName("zxsize")[0].value);
-    var dense_minseg = parseFloat(document.getElementsByName("dense_minseg")[0].value);
-    var dense_maxseg = parseFloat(document.getElementsByName("dense_maxseg")[0].value);
-    var dense_efficient = document.getElementsByName("dense_efficient")[0].checked;
-    var mode = "";
-    if (document.getElementById("mode_x").checked) {
-      mode = "x";
-    }
-    if (document.getElementById("mode_y").checked) {
-      mode = "y";
-    }
-    if (document.getElementById("mode_xy").checked) {
-      mode = "xy";
-    }
-    if (document.getElementById("mode_perim").checked) {
-      mode = "perim";
-    }
-    if (document.getElementById("mode_ztest_corners").checked) {
-      mode = "ztest_corners";
-    }
-    if (document.getElementById("mode_ztest_grid").checked) {
-      mode = "ztest_grid";
-    }
-    if (document.getElementById("mode_dense_segments").checked) {
-      mode = "dense_segments";
-    }
+    var zero = $("input[name=zero]").prop('checked');
+    var pen_d = parseFloat($("input[name=pen_d]").val());
+    var pen_u = parseFloat($("input[name=pen_u]").val());
+    var rapid = parseFloat($("input[name=rapid]").val());
+    var vertical = parseFloat($("input[name=vertical]").val());
+    var drawspeed = parseFloat($("input[name=drawspeed]").val());
+    var ysize = parseFloat($("input[name=ysize]").val());
+    var xsize = parseFloat($("input[name=xsize]").val());
+    var zxsize = parseFloat($("input[name=zxsize]").val());
+    var dense_minseg = parseFloat($("input[name=dense_minseg]").val());
+    var dense_maxseg = parseFloat($("input[name=dense_maxseg]").val());
+    var dense_efficient = $("input[name=dense_efficient]").prop('checked');
+    var mode = $("input[name=mode]:checked").val();
     
     output_append("; pen down z level: " + pen_d);
     output_append("; pen up z level: " + pen_u);
@@ -210,6 +316,16 @@
     output_append("; x extent: " + xsize);
     output_append("; y extent: " + ysize);
     output_append("; mode: " + mode);
+    
+    if (mode == "ztest_corners" || mode == "ztest_grid") {
+      output_append("; zxsize: " + zxsize);
+    }
+    
+    if (mode == "dense_segments") {
+      output_append("; dense_minseg: " + dense_minseg);
+      output_append("; dense_maxseg: " + dense_maxseg);
+      output_append("; dense_efficient: " + dense_efficient);
+    }
     
     var zup = " Z" + pen_u;
     var zdn = " Z" + pen_d;
@@ -280,7 +396,23 @@
       }
     }
 
-    download('testpattern.gcode', document.getElementById('output').innerHTML);
+    if (mode == "accel") {
+      output_append("; accel mode not yet implemented");
+    }
+    
+    if (mode == "accel_jerk") {
+      output_append("; accel_jerk mode not yet implemented");
+    }
+    
+    if (mode == "text") {
+      output_append("; text mode not yet implemented");
+    }
+    
+    // name file <mode>-yyyy-mm-dd-hhmmss.gcode
+    var d = new Date();
+    var fname = mode + "-" + d.getFullYear() + "-" + ("0"+(d.getMonth()+1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2) + "-" +
+      ("0" + d.getHours()).slice(-2) + ("0" + d.getMinutes()).slice(-2) + ("0" + d.getSeconds()).slice(-2) + ".gcode";
+    download(fname, document.getElementById('output').innerHTML);
   }
   
   
