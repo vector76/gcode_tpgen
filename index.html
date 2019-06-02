@@ -8,6 +8,8 @@
 }
 </style>
 <script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
+<script src="char_render.js"></script>
+<meta charset="utf-8"/>
 </head>
 <body>
 <table>
@@ -85,10 +87,12 @@ Eventually will generate gcode to test acceleration, assuming "junction deviatio
 Eventually will generate gcode to test acceleration and jerk settings, assuming classic "jerk" approach is being used instead of junction deviation.
 </div>
 <div id="text_desc">
-<h1>Text Generation Not Yet Implemented</h1>
-Eventually will generate toolpaths from text, using a fixed-width font, which is potentially useful for ASCII art.
+<h1>Text Generation</h1>
+Generates toolpaths from text, using a fixed-width font, which is potentially useful for ASCII art.
 <p>
 <span style="color:red">This requires firmware support for G5 (Bezier splines)!</span>  This is not enabled by default in MPCNC firmware, but it is fairly straightforward to enable.
+<p>
+The text is stretched to fill a rectangle defined by X Extent and Y Extent.  This can create extremely stretched or squished characters which might not be desirable.  Strongly recommended: look in the g-code comments at the x pitch and y pitch and y/x aspect ratio, which can indicate if the generated text is likely to be of the size and proportion you want.
 </div>
 </td></tr></table>
 <div>
@@ -307,6 +311,19 @@ Questions, suggestions, feature requests are welcome.
     var dense_maxseg = parseFloat($("input[name=dense_maxseg]").val());
     var dense_efficient = $("input[name=dense_efficient]").prop('checked');
     var mode = $("input[name=mode]:checked").val();
+    var textlines = $("textarea[name=text_input]").val().split('\n');
+    var longestline = 1;
+    var textpitchx = 1;
+    var textpitchy = 1;
+    if (textlines.length > 0) {
+      for (var i=0; i < textlines.length; i++) {
+        if (textlines[i].length > longestline) {
+          longestline = textlines[i].length;
+        }
+      }
+      textpitchx = xsize / longestline;
+      textpitchy = ysize / textlines.length;
+    }
     
     output_append("; pen down z level: " + pen_d);
     output_append("; pen up z level: " + pen_u);
@@ -325,6 +342,13 @@ Questions, suggestions, feature requests are welcome.
       output_append("; dense_minseg: " + dense_minseg);
       output_append("; dense_maxseg: " + dense_maxseg);
       output_append("; dense_efficient: " + dense_efficient);
+    }
+    
+    if (mode == "text") {
+      output_append("; text: " + textlines.length + " lines, longest line " + longestline + " characters");
+      output_append("; y pitch: " + textpitchy + " mm (line-to-line)");
+      output_append("; x pitch: " + textpitchx + " mm (character-to-character)");
+      output_append("; y/x aspect ratio: " + (textpitchy/textpitchx) + " ideally should be about 2, or at least between 1 and 4");
     }
     
     var zup = " Z" + pen_u;
@@ -405,7 +429,12 @@ Questions, suggestions, feature requests are welcome.
     }
     
     if (mode == "text") {
-      output_append("; text mode not yet implemented");
+      var drawparms = { zup: pen_u, zdn: pen_d, rapid: rapid, drawspeed: drawspeed, vertical: vertical };
+      // function render_text(textlines, drawparms, out_pitch)
+      var gcode = render_text(textlines, drawparms, [ textpitchx, textpitchy ]);
+      for (var i=0; i < gcode.length; i++) {
+        output_append(gcode[i]);
+      }
     }
     
     // name file <mode>-yyyy-mm-dd-hhmmss.gcode
