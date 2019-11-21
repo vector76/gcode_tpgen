@@ -1,0 +1,481 @@
+<html>
+<head>
+<title>G-Code Checker</title>
+<style>
+.output {
+  font-family: monospace;
+  font-size: 8pt;
+}
+.resultbox {
+  font-size: 12pt;
+}
+.descbox {
+  display: none;
+}
+.Warning {
+  background-color: yellow;
+}
+.Good {
+  background-color: lightgreen;
+}
+.Info {
+  background-color: lightgrey;
+}
+table {
+  border-collapse: collapse;
+}
+table, th, td {
+  border: 1px solid black;
+} 
+</style>
+<script src="https://code.jquery.com/jquery-1.9.1.min.js"></script>
+<meta charset="utf-8"/>
+</head>
+<body>
+Choose gcode file to process:<br/> 
+<input type="file" id="file" name="file" accept=".gcode,.nc"><br/><br/>
+
+<table id="the_table" style="width: 800px;">
+</table>
+
+<script>
+  var allcmds = [];
+  var move_before_G92 = false;
+  var move_before_G28 = false;
+  var first_missing_feed = 0;
+  var num_missing_feed = 0;
+  var has_paren = false;
+  var has_extrusion = false;
+  var limits = { xmin: Infinity, xmax: -Infinity, ymin: Infinity, ymax: -Infinity, zmin: Infinity, zmax: -Infinity };
+  
+  var known = { G00:1, G01:1, G02:1, G03:1, G04:1, G05:1, G20:1, G21:1, G28:1, G90:1, G91:1, G92:1, M00:1, M03:1, M05:1, T0:1, T1:1, T2:1, T3:1 };
+  
+  function resetValues() {
+    allcmds = [];
+    move_before_G92 = false;
+    move_before_G28 = false;
+    first_missing_feed = 0;
+    num_missing_feed = 0;
+    has_paren = false;
+    has_extrusion = false;
+    limits = { xmin: Infinity, xmax: -Infinity, ymin: Infinity, ymax: -Infinity, zmin: Infinity, zmax: -Infinity };
+  }
+  
+  function processLine(origline, lineno) {
+    // strip semicolon
+    var semi = origline.indexOf(";");
+    if (semi != -1) {
+      clean = origline.slice(0, semi).trim();
+    }
+    else {
+      clean = origline.trim();
+    }
+    
+    if (clean.includes("(")) {
+      has_paren = true;
+      return "has paren";
+    }
+    
+    var words = clean.split(" ");
+    var cmd = words[0];
+    if (cmd.length == 2 && cmd.startsWith("G")) {
+      cmd = "G0" + cmd.slice(1);
+    }
+    if (cmd.length == 2 && cmd.startsWith("M")) {
+      cmd = "M0" + cmd.slice(1);
+    }
+    
+    if (cmd.startsWith("G") || cmd.startsWith("M")) {
+      allcmds[cmd] = 1;
+    }
+    
+    if (cmd === "G00" || cmd === "G01" || cmd === "G02" || cmd === "G03" || cmd === "G05") {
+      var hasF = false;
+      for (var i=1; i < words.length; i++) {
+        if (words[i].startsWith("F")) {
+          hasF = true;
+        }
+        if (words[i].startsWith("E")) {
+          has_extrusion = true;
+        }
+        if (words[i].startsWith("X")) {
+          var x = parseFloat(words[i].slice(1));
+          if (x > limits.xmax) {
+            limits.xmax = x;
+          }
+          if (x < limits.xmin) {
+            limits.xmin = x;
+          }
+        }
+        if (words[i].startsWith("Y")) {
+          var y = parseFloat(words[i].slice(1));
+          if (y > limits.ymax) {
+            limits.ymax = y;
+          }
+          if (y < limits.ymin) {
+            limits.ymin = y;
+          }
+        }
+        if (words[i].startsWith("Z")) {
+          var z = parseFloat(words[i].slice(1));
+          if (z > limits.zmax) {
+            limits.zmax = z;
+          }
+          if (z < limits.zmin) {
+            limits.zmin = z;
+          }
+        }
+      }
+      
+      if (!("G92" in allcmds)) {
+        move_before_G92 = true;
+      }
+      
+      if (!("G28" in allcmds)) {
+        move_before_G28 = true;
+      }
+      
+      if (!hasF) {
+        num_missing_feed = num_missing_feed + 1;
+        if (num_missing_feed == 1) {
+          first_missing_feed = lineno;
+        }
+        // return (num_missing_feed < 10) ? "Movement command without feedrate on line " + lineno + ": " + g : "";
+      }
+      return "";
+    }
+    
+    if (cmd in known) {
+      return "";
+    }
+    return clean;
+  }
+  
+  function nspaces(n) {
+    if (n <= 0) {
+      return " ";
+    }
+    return " ".repeat(n);
+  }
+
+  function appendUnknown(x) {
+    var output = document.getElementById('output');
+    var newcontent = document.createElement('div');
+    newcontent.innerHTML = x + "\n";
+
+    while (newcontent.firstChild) {
+      output.appendChild(newcontent.firstChild);
+    }
+  }
+  
+  function handleFileSelect(evt) {
+    var f = evt.target.files[0]; // get first element of FileList object
+
+    if (f === undefined) {
+      return;
+    }
+    
+    var reader = new FileReader();
+    
+    reader.onload = function(event) {
+      // event.target.result has the contents of the file
+      resetValues();
+            
+      var lines = event.target.result.split('\n');
+      for(var line = 0; line < lines.length; line++) {
+        var pline = processLine(lines[line], line+1);
+        if (pline.length > 0) {
+          console.log(lines[line] + nspaces(80-lines[line].length) + pline);
+          appendUnknown(lines[line]);
+        }
+      }
+      
+      if (!isFinite(limits.xmin) || !isFinite(limits.xmax)) {
+        limits.xmin = 0;
+        limits.xmax = 0;
+      }
+      
+      if (!isFinite(limits.ymin) || !isFinite(limits.ymax)) {
+        limits.ymin = 0;
+        limits.ymax = 0;
+      }
+      
+      if (!isFinite(limits.zmin) || !isFinite(limits.zmax)) {
+        limits.zmin = 0;
+        limits.zmax = 0;
+      }
+            
+      // Parentheses, bad comments
+      if (has_paren) {
+        insertResult("paren_comments", "Warning", "Contains parentheses.  Wrong style of comments may lead to parsing of garbage commands.");
+      }
+      else {
+        insertResult("paren_comments", "Good", "Contains no parentheses, i.e. comments formatted correctly, if any.");
+      }
+      
+      // G20/G21 inch/mm mode
+      if ("G20" in allcmds) {
+        insertResult("inch_mode", "Warning", "Specifies inch mode (G20)!  Check your CAM!");
+      }
+      else if ("G21" in allcmds) {
+        insertResult("inch_mode", "Good", "Has G21 to specify mm mode.");
+      }
+      else {
+        insertResult("inch_mode", "Warning", "Inch/mm mode unspecified (neither G21 nor G20 present).  Add G21 to specify mm mode.");
+      }
+      
+      // G90/G91 absolute/relative mode usage
+      if ("G91" in allcmds) {
+        insertResult("rel_mode", "Warning", "Job performs some operations in relative mode (G91).  This is unusual.");
+      }
+      else if ("G90" in allcmds) {
+        insertResult("rel_mode", "Good", "Job specifies absolute positioning (G90) and does not use relative mode.");
+      }
+      else {
+        insertResult("rel_mode", "Warning", "Job does not specify relative or absolute mode, which is potentially unsafe.  Add absolute positioning (G90) to start of program.");
+      }
+
+      // G92 set origin
+      if ("G92" in allcmds && !move_before_G92) {
+        insertResult("zero_start", "Good", "Job contains G92 to reset coordinates prior to any movements.");
+      }
+      else if ("G28" in allcmds && !move_before_G28) {
+        insertResult("zero_start", "Good", "Job contains G28 to home machine prior to any movements.");
+      }
+      else if ("G92" in allcmds) {
+        insertResult("zero_start", "Warning", "Job contains G92 to reset coordinates but some movements occur before first G92.");
+      }
+      else if ("G28" in allcmds) {
+        insertResult("zero_start", "Warning", "Job contains G28 to home machine but some movements occur before first G28.");
+      }
+      else {
+        insertResult("zero_start", "Warning", "Job does not contain G92 or G28, assumes machine already homed or zeroed prior to running job.");
+      }
+      
+      // Missing feedrates
+      if (num_missing_feed == 0) {
+        insertResult("always_f", "Good", "Every movement has a feed rate.");
+      }
+      else {
+        insertResult("always_f", "Warning", "At least some movements have no feed rate specified (first instance on line " + first_missing_feed + ").");
+      }
+
+      // Check for "Tx" tool change commands
+      if ("T0" in allcmds || "T1" in allcmds || "T2" in allcmds || "T3" in allcmds) {
+        insertResult("tool_cmds", "Warning", "Job contains tool change commands (T?).  Confirm that firmware or gcode sender will handle appropriately.");
+      }
+      else {
+        insertResult("tool_cmds", "Good", "Job does not contain tool change commands (T_).");
+      }
+      
+      // Arcs
+      if ("G02" in allcmds || "G03" in allcmds) {
+        insertResult("arc", "Info", "Job contains arc movements (G2 or G3).");
+      }
+      else {
+        insertResult("arc", "Info", "Job does not contain arc movements (G2 or G3).");
+      }
+      
+      // Splines
+      if ("G05" in allcmds) {
+        insertResult("spline", "Info", "Job contains spline movements (G5).  Check that this is enabled in firmware.");
+      }
+      else {
+        insertResult("spline", "Info", "Job does not contain spline movements (G5).");
+      }
+      
+      // Spindle start/stop M03/M05
+      if ("M03" in allcmds && "M05" in allcmds) {
+        insertResult("spindle", "Info", "Job contains spindle start and stop (M3 and M5).");
+      }
+      else if ("M03" in allcmds) {
+        insertResult("spindle", "Warning", "Job contains spindle start (M3) but no spindle stop (M5).");
+      }
+      else if ("M05" in allcmds) {
+        insertResult("spindle", "Warning", "Job contains spindle stop (M5) but no spindle start (M3).");
+      }
+      else {
+        insertResult("spindle", "Info", "Job does not contain spindle start or stop (M3 or M5).");
+      }
+      
+      // Pause M00
+      if ("M00" in allcmds) {
+        insertResult("pause", "Info", "Job contains pause for user (M00).");
+      }
+      else {
+        insertResult("pause", "Info", "Job does not contain pause for user (M00).");
+      }
+      
+      // Check extrusion
+      if (has_extrusion) {
+        insertResult("extruder", "Info", "Job uses extruder.");
+      }
+      else {
+        insertResult("extruder", "Info", "Job does not use extruder.");
+      }
+      
+      // xyz limits
+      insertResult("movement_limits", "Info", 
+        "<table><tr><td>X limits: </td><td>" + limits.xmin + "</td><td>" + limits.xmax + "</td></tr>"+
+        "<tr><td>Y limits: </td><td>" + limits.ymin + "</td><td>" + limits.ymax + "</td></tr>"+
+        "<tr><td>Z limits: </td><td>" + limits.zmin + "</td><td>" + limits.zmax + "</td></tr></table>");
+      
+      
+      if (limits.xmin < 0 && limits.ymin < 0) {
+        insertResult("negative_xy", "Warning", "Job moves to negative X (" + limits.xmin + ") and negative Y (" + limits.ymin + ") coordinates.");
+      }
+      else if (limits.xmin < 0) {
+        insertResult("negative_xy", "Warning", "Job moves to negative X (" + limits.xmin + ") coordinates.");
+      }
+      else if (limits.ymin < 0) {
+        insertResult("negative_xy", "Warning", "Job moves to negative Y (" + limits.ymin + ") coordinates.");
+      }
+      else {
+        insertResult("negative_xy", "Good", "Job does not move to negative X or negative Y coordinates.");
+      }
+    }
+    reader.readAsText(f);
+  }
+
+  function insertResult(rowname, label, description) {
+    var D = document.getElementById(rowname + "_result");
+    D.innerHTML = "<span class='" + label + "'>" + label + "</span>: " + description;
+  }
+  
+  // programmatic generation of the table so it's easy to change the syntax of the whole table at once
+  function addTableRow(rowname, summary, detail) {
+    var T = document.getElementById('the_table');
+    if (rowname === "misc") {
+      T.innerHTML += "<tr><td id='misc_td'>" + summary + " (<a href='javascript:void(0)' onclick='$(\"div[id=" + rowname + "_desc]\").toggle();'>more</a>)<br/>" +
+      "<div id='" + rowname + "_desc' class='descbox'>" + detail + "</div>" + 
+      "</td></tr>";
+    }
+    else {
+      T.innerHTML += "<tr><td>" + 
+      "<span id='" + rowname + "_result' class='resultbox'>" + summary + "</span>" + 
+      " (<a href='javascript:void(0)' onclick='$(\"div[id=" + rowname + "_desc]\").toggle();'>more</a>)" +
+      "<div id='" + rowname + "_desc' class='descbox'>" + detail + "</div>" + 
+      "</td></tr>";
+    }
+  }
+  
+  function addInfoCheck(rowname) {
+    TD = document.getElementById('misc_td');
+    TD.innerHTML += "<div id='" + rowname + "_result' class='resultbox'></div>";
+  }
+  
+  
+  document.getElementById('file').addEventListener('change', handleFileSelect, false);
+  
+  addTableRow("always_f", "Check presence of feedrate on every movement",
+    "<p>If the feedrate of a movement command is not specified, it uses the previously used feedrate.  This is not " +
+    "necessarily a problem but there is some risk that the CAM software generating the g-code could make different " +
+    "assumptions about the operative feedrates and this can lead to problems. " +
+    "</p> " +
+    "<p>Personally, I have made mistakes with manually entered g-code lacking feedrates (in start-of-job g-code for " +
+    "a 3D printer for example) which led to undesirable results, although thankfully not catastrophic.  Even if the " +
+    "assumed unspecified feedrates are correct for a job, pausing, jogging, and resuming through a GUI can lead to " +
+    "bad results using the jogging feedrate instead of the previous movement within the g-code file. " +
+    "</p> " +
+    "<p>For these reasons, specifying feedrate on every movement is recommended. " +
+    "</p>"
+    );
+  
+  addTableRow("z_speed", "Calculate Z movement speed <span style='color:red'>not yet implemented</span>", 
+    "<p>High speeds for Z movements increase the chance of skipping steps.  Even worse, the propensity to skip steps " +
+    "is worse when moving up than it is when moving down, which can lead to tools cutting deeper than intended, and " +
+    "in severe cases this can cause fires. " +
+    "</p> " +
+    "<p>This feature reports the highest feedrate upward and downward.  For ramp movements moving Z simultaneous with X or Y, " +
+    "the checker considers only the vertical component of the movement. " +
+    "</p> "
+    );
+  
+  addTableRow("high_cmd_rate", "Check high command rate (very large numbers of very small movements) <span style='color:red'>not yet implemented</span>",
+    "<p>In some cases CAM software will generate a large number of very small movements, and in some cases Marlin can " +
+    "perform the physical movements faster than the g-code commands can be sent.  This causes the movement queue to " +
+    "be depleted, which leads to slow or stuttering movement of the tool. " +
+    "</p> " +
+    "<p>On Atmega 2560 based devices communicating over USB the limit has been estimated at approximately 20 commands " +
+    "per second.  The maximum rate from SD appears to be much higher, and running from SD is a possible remedy if " +
+    "stuttering is observed. " +
+    "</p> "
+    );
+  
+  addTableRow("low_cmd_rate", "Check low command rate (large, slow movements) <span style='color:red'>not yet implemented</span>",
+    "<p>When a job contains individual movements commands that are long, slow movements, it can make it difficult to pause " +
+    "or cancel a job because the queued commands have to be completed before the UI commands take effect.  The LCD " +
+    "readout also shows the status after the last queued command, which may be substantially different from the current " +
+    "tool position. " +
+    "</p> " +
+    "<p>This feature calculates the maximum duration of the queued commands, assuming a queue depth of 16 movements. " +
+    "</p> "
+    );
+  
+  addTableRow("movement_limits", "Calculate movement limits in X, Y, and Z",
+    "<p>This feature calculates the extreme positions of the tool in X, Y, and Z.  Note that this is relative to the location " +
+    "where the machine is homed or to the coordinate set by G92.  These zero coordinates must be correct in order for the " +
+    "extreme tool positions to be safe. " +
+    "</p>"
+    );
+  
+  addTableRow("negative_xy", "Check movement to negative X or Y",
+    "<p>For dual-endstop builds, or in general for builds with soft stops enabled, the firmware will prevent movement to negative " +
+    "X or Y coordinates.  Attempting to move to negative coordinates will produce movement unplanned by CAM, " +
+    "which will usually ruin the workpiece. " +
+    "</p> " +
+    "<p>This feature detects if the X or Y coordinates ever go negative.  Note this does NOT check the intermediate positions along " +
+    "an arc or spline, which can potentially go negative even if the endpoints are positive." +
+    "</p>"
+    );
+  
+  addTableRow("paren_comments", "Check for comments in parentheses",
+    "<p>Some milling machines accept g-code with comments enclosed in parentheses, but Marlin does not.  Some CAM software will " +
+    "generate g-code with comments enclosed in parentheses.  This can create problems if sent to a Marlin-based CNC machine. " +
+    "</p>"
+    );
+  
+  addTableRow("rel_mode", "Check for relative mode", 
+    "<p>Most g-code jobs operate exclusively in absolute mode.  For safety, it is recommended that the beginning of the job " +
+    "explicitly put the machine into absolute mode, or else the tool could quickly run off the end of the machine. " +
+    "</p> " +
+    "<p>An interface that performs jogging may switch into relative mode and (one would hope) switches back into absolute mode. " +
+    "This feature checks that the g-code places the machine into absolute mode explicitly just to be sure, and warns if any " +
+    "switching into relative mode is present in the job. " +
+    "</p> "
+    );
+  
+  addTableRow("inch_mode", "Check for inch mode",
+    "<p>Most Marlin/MPCNC jobs are run in mm coordinates, not inches.  This feature checks whether the g-code job explicitly puts " +
+    "the machine in mm mode (it should), or if it is ever put into inch mode (it shouldn't). " +
+    "</p>"
+    );
+    
+  addTableRow("zero_start", "Check for zeroing at beginning", 
+    "<p>Some configurations are setup to re-zero the origin at the start, so the position of the tool at the start of the job  " +
+    "is effectively the zero point (or a fixed offset from zero) relative to the workpiece. " +
+    "</p> " +
+    "<p>Less common, but also possible, is for CAM to be performed in absolute coordinates, relative to the machine workspace " +
+    "which is registered by homing (G28). " +
+    "</p> " +
+    "<p>This reature is purely informative as to whether the g-code job contains a G92 reset of the origin or G28 homing near the beginning. " +
+    "</p> "
+    );
+  addTableRow("tool_cmds", 'Check for tool change commands "T?"', 
+    '<p>A tool change command "T0" or "T1" is supported by Marlin for changing extruders, but for CNC tool changes it is unclear' +
+    'what it will do.  This checks for the presence or absence of any T commands.' +
+    '</p>'
+    );
+  addTableRow("misc", "Other informative checks", "<p>Additional information that may be helpful or interesting.</p>");
+  
+  addInfoCheck("arc");
+  addInfoCheck("spline");
+  addInfoCheck("spindle");
+  addInfoCheck("pause");
+  addInfoCheck("extruder");
+  
+  addTableRow("unknown", "Unrecognized commands, presumed harmless", "All g-code commands not recognized are listed here.</div><div><pre id='output' class='output'></pre>");
+  
+</script>
+</body>
+</html>
