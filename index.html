@@ -24,7 +24,6 @@
 <input type="radio" name="mode" value="ztest_grid"> Z test grid<br>
 <input type="radio" name="mode" value="dense_segments"> Dense segments<br>
 <input type="radio" name="mode" value="accel"> Acceleration<br>
-<input type="radio" name="mode" value="accel_jerk"> Acceleration and jerk<br>
 <input type="radio" name="mode" value="text"> Text</td></tr>
 <tr><td>Start with G92 X0 Y0 Z0:</td><td><input type="checkbox" name="zero" checked></td></tr>
 <tr><td>Z level for pen-down:</td><td><input type="text" name="pen_d" value="-0.5", size="6"> mm</td></tr>
@@ -32,8 +31,14 @@
 <tr><td>Rapid Feedrate:</td><td><input type="text" name="rapid" value="2000", size="6"> mm/min</td></tr>
 <tr><td>Raise/lower Feedrate:</td><td><input type="text" name="vertical" value="800", size="6"> mm/min</td></tr>
 <tr><td>Draw Feedrate:</td><td><input type="text" name="drawspeed" value="1000", size="6"> mm/min</td></tr>
+<tr><td>Draw Feedrate (slow):</td><td><input type="text" name="drawspeed_slow" value="200", size="6"> mm/min</td></tr>
+<tr><td>High Acceleration:</td><td><input type="text" name="accel_high" value="1000", size="6"> mm/sec^2</td></tr>
+<tr><td>Low Acceleration:</td><td><input type="text" name="accel_low" value="100", size="6"> mm/sec^2</td></tr>
 <tr><td>X Extent:</td><td><input type="text" name="xsize" value="100", size="6"> mm</td></tr>
 <tr><td>Y Extent:</td><td><input type="text" name="ysize" value="100", size="6"> mm</td></tr>
+<tr><td>Segment Length:</td><td><input type="text" name="accel_segment" value="20", size="6"> mm</td></tr>
+<tr><td>Corner Radius:</td><td><input type="text" name="accel_corner" value="0", size="6"> mm</td></tr>
+<tr><td>Number of Staircases:</td><td><input type="text" name="staircases" value="10", size="6"> (count)</td></tr>
 <tr><td>Z Test Cross Size:</td><td><input type="text" name="zxsize" value="14", size="6"> mm</td></tr>
 <tr><td>Dense segments min:</td><td><input type="text" name="dense_minseg" value="0.02", size="6"> mm</td></tr>
 <tr><td>Dense segments max:</td><td><input type="text" name="dense_maxseg" value="0.5", size="6"> mm</td></tr>
@@ -81,10 +86,6 @@ As an additional option to see the possible influence on processing speed, a mor
 <div id="accel_desc">
 <h1>Acceleration Not Yet Implemented</h1>
 Eventually will generate gcode to test acceleration, assuming "junction deviation" approach is being used.
-</div>
-<div id="accel_jerk_desc">
-<h1>Acceleration and Jerk Not Yet Implemented</h1>
-Eventually will generate gcode to test acceleration and jerk settings, assuming classic "jerk" approach is being used instead of junction deviation.
 </div>
 <div id="text_desc">
 <h1>Text Generation</h1>
@@ -145,18 +146,25 @@ Questions, suggestions, feature requests are welcome.
     }
     
     if (mode == "accel") {
+      $("input[name=drawspeed_slow]").parent().parent().show();
+      $("input[name=accel_segment]").parent().parent().show();
+      $("input[name=accel_radius]").parent().parent().show();
+      $("input[name=staircases]").parent().parent().show();
+      $("input[name=accel_high]").parent().parent().show();
+      $("input[name=accel_low]").parent().parent().show();
       $("div[id=accel_desc]").show();
     }
     else {
+      $("input[name=drawspeed_slow]").parent().parent().hide();
+      $("input[name=accel_segment]").parent().parent().hide();
+      $("input[name=accel_radius]").parent().parent().hide();
+      $("input[name=staircases]").parent().parent().hide();
+      $("input[name=accel_high]").parent().parent().hide();
+      $("input[name=accel_low]").parent().parent().hide();
       $("div[id=accel_desc]").hide();
     }
     
-    if (mode == "accel_jerk") {
-      $("div[id=accel_jerk_desc]").show();
-    }
-    else {
-      $("div[id=accel_jerk_desc]").hide();
-    }
+
     
     if (mode == "text") {
       $("textarea[name=text_input]").parent().show();
@@ -294,6 +302,43 @@ Questions, suggestions, feature requests are welcome.
     output_append("G1 X" + x1 + " Y" + y0 + zup + " F" + drawspeed);
   }
   
+  function xy_stairs(xstart, ystart, seg_length, numsegs, zup, zdn, rapid, vertical, radius, speedfast, speedslow) {
+    // raise pen
+    output_append("G1" + zup + " F" + vertical);
+    // move to xstart, ystart
+    output_append("G1 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
+    // lower pen
+    output_append("G1" + zdn + " F" + vertical);
+    
+    var x = xstart;
+    var y = ystart;
+    var speed_incr = (speedfast-speedslow)/(numsegs-1);
+    for (i=0; i < numsegs; i++) {
+      var speed = speedfast - speed_incr * i;
+      if (i % 2 == 0) {
+        // draw from x, y to x+seg_length-radius, y
+        output_append("G1 X" + (x+seg_length-radius).toFixed(3) + " Y" + y.toFixed(3) + " F" + Math.round(speed));
+        if (radius > 0) {
+          // arc from x+seg_length-radius, y to x+seg_length, y+radius
+        }
+        else {
+          x = x + seg_length;
+        }
+      }
+      else {
+        // draw from x, y to x, y+seg_length-radius
+        output_append("G1 X" + x.toFixed(3) + " Y" + (y+seg_length-radius).toFixed(3) + " F" + Math.round(speed));
+        
+        if (radius > 0) {
+          // arc from x, y+seg_length-radius to x+radius, y+seg_length
+        }
+        else {
+          y = y + seg_length;
+        }
+      }
+    }
+  }
+  
   function generate() {
     // clear output in case it's been run already:
     document.getElementById('output').innerHTML = "";
@@ -307,6 +352,12 @@ Questions, suggestions, feature requests are welcome.
     var ysize = parseFloat($("input[name=ysize]").val());
     var xsize = parseFloat($("input[name=xsize]").val());
     var zxsize = parseFloat($("input[name=zxsize]").val());
+    var accel_segment = parseFloat($("input[name=accel_segment]").val());
+    var accel_corner = parseFloat($("input[name=accel_corner]").val());
+    var staircases = parseFloat($("input[name=staircases]").val());
+    var drawspeed_slow = parseFloat($("input[name=drawspeed_slow]").val());
+    var accel_high = parseFloat($("input[name=accel_high]").val());
+    var accel_low = parseFloat($("input[name=accel_low]").val());
     var dense_minseg = parseFloat($("input[name=dense_minseg]").val());
     var dense_maxseg = parseFloat($("input[name=dense_maxseg]").val());
     var dense_efficient = $("input[name=dense_efficient]").prop('checked');
@@ -349,6 +400,15 @@ Questions, suggestions, feature requests are welcome.
       output_append("; y pitch: " + textpitchy + " mm (line-to-line)");
       output_append("; x pitch: " + textpitchx + " mm (character-to-character)");
       output_append("; y/x aspect ratio: " + (textpitchy/textpitchx) + " ideally should be about 2, or at least between 1 and 4");
+    }
+    
+    if (mode == "accel") {
+      output_append("; slow drawing feedrate: " + drawspeed_slow + " mm/min");
+      output_append("; segment length: " + accel_segment + " mm");
+      output_append("; corner radius: " + accel_corner + " mm");
+      output_append("; number of staircases: " + staircases);
+      output_append("; high acceleration: " + accel_high + " mm/s^2");
+      output_append("; low acceleration: " + accel_low + " mm/s^2");
     }
     
     var zup = " Z" + pen_u;
@@ -421,11 +481,26 @@ Questions, suggestions, feature requests are welcome.
     }
 
     if (mode == "accel") {
-      output_append("; accel mode not yet implemented");
-    }
-    
-    if (mode == "accel_jerk") {
-      output_append("; accel_jerk mode not yet implemented");
+      var xstart = 0;
+      var ystart = ysize/2;
+      var xsegs_max = Math.floor(xsize/2/accel_segment);
+      var ysegs_max = Math.floor(ysize/2/accel_segment);
+      ysegs_max = Math.min(ysegs_max, xsegs_max);
+      xsegs_max = Math.min(xsegs_max, ysegs_max+1);
+      var numsegs = ysegs_max + xsegs_max;
+      var xstep = xsize/2/(staircases-1);
+      var ystep = -ysize/2/(staircases-1);
+      var acc_step = (accel_high - accel_low)/(staircases-1);
+      for (var i=0; i < staircases; i++) {
+        var accel = Math.round(accel_high - acc_step*i);
+        output_append("M201 X" + accel + " Y" + accel);
+        output_append("M204 T" + accel);
+        output_append("G4 S0");
+        xy_stairs(xstart+xstep*i, ystart+ystep*i, accel_segment, numsegs, zup, zdn, rapid, vertical, accel_corner, drawspeed, drawspeed_slow);
+      }
+      output_append("G1" + zup + " F" + vertical);
+      output_append("G1 X0 Y0 F" + rapid);
+      output_append("M501");
     }
     
     if (mode == "text") {
