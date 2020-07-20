@@ -24,7 +24,9 @@
 <input type="radio" name="mode" value="ztest_grid"> Z test grid<br>
 <input type="radio" name="mode" value="dense_segments"> Dense segments<br>
 <input type="radio" name="mode" value="accel"> Acceleration<br>
-<input type="radio" name="mode" value="text"> Text</td></tr>
+<input type="radio" name="mode" value="text"> Text<br>
+<input type="radio" name="mode" value="surfacing"> Surfacing
+</td></tr>
 <tr><td>Start with G92 X0 Y0 Z0:</td><td><input type="checkbox" name="zero" checked></td></tr>
 <tr><td>Z level for pen-down:</td><td><input type="text" name="pen_d" value="-0.5", size="6"> mm</td></tr>
 <tr><td>Z level for pen-up:</td><td><input type="text" name="pen_u" value="0.5", size="6"> mm</td></tr>
@@ -43,6 +45,8 @@
 <tr><td>Dense segments min:</td><td><input type="text" name="dense_minseg" value="0.02", size="6"> mm</td></tr>
 <tr><td>Dense segments max:</td><td><input type="text" name="dense_maxseg" value="0.5", size="6"> mm</td></tr>
 <tr><td>Save bandwidth:</td><td><input type="checkbox" name="dense_efficient"></td></tr>
+<tr><td>Surfacing stepover:</td><td><input type="text" name="stepover" value="12", size="6"> mm</td></tr>
+<tr><td>Cutting direction:</td><td><input type="text" name="direction" value="E", size="6"> (N, S, E, or W)</td></tr>
 <tr><td></td><td><input type="button" value="Generate" onclick="generate()"></td></tr>
 </table>
 </td><td style="vertical-align:top">
@@ -94,6 +98,17 @@ Generates toolpaths from text, using a fixed-width font, which is potentially us
 <span style="color:red">This requires firmware support for G5 (Bezier splines)!</span>  This is not enabled by default in MPCNC firmware, but it is fairly straightforward to enable.
 <p>
 The text is stretched to fill a rectangle defined by X Extent and Y Extent.  This can create extremely stretched or squished characters which might not be desirable.  Strongly recommended: look in the g-code comments at the x pitch and y pitch and y/x aspect ratio, which can indicate if the generated text is likely to be of the size and proportion you want.
+</div>
+<div id="surfacing_desc">
+<h1>Spoil Board (or Workpiece) Surfacing</h1>
+Generates strokes at a given depth traveling in only one direction.
+<p>
+If the router is not quite perpendicular, then one side will cut slightly deeper than the other.   This is not normally an issue for small-diameter bits but the amplitude is larger for large-diameter bits.
+<p>It is assumed that the bits are intended for cutting radially and not on axially, so the deeper-cutting side should be the leading side.  A standard pocketing tool path from Estlcam for example will traverse back and forth in opposite directions.  With the deeper side leading, it will cut radially, but in the opposite direction the leading edge will cut slightly shallow and the trailing edge will cut axially or possibly rub and generate heat.
+<p>Therefore the cutting strategy for this cut is to cut only one direction, lifting the bit between cuts.  The cutting direction is specified and must be "N", "S", "E", or "W", which cut in the +Y, -Y, +X, and -X directions, respectively.
+<p>As an added feature, the cutting toolpath is split into relatively small segments instead of being single, very long G1 movements, which allows dynamic adjustment of the feedrate via the Octoprint interface or the LCD.
+<p><span style="color:red">Note the recommended feedrates for surfacing are quite a bit slower than for drawing and must be chosen manually.  The defaults are unlikely to work well!</span>
+<p>Note that the X extent and Y extent are the extent of travel of the center of the cutting bit.  The pocket size will be larger by the diameter of the cutting bit.
 </div>
 </td></tr></table>
 <div>
@@ -148,7 +163,7 @@ Questions, suggestions, feature requests are welcome.
     if (mode == "accel") {
       $("input[name=drawspeed_slow]").parent().parent().show();
       $("input[name=accel_segment]").parent().parent().show();
-      $("input[name=accel_radius]").parent().parent().show();
+      $("input[name=accel_corner]").parent().parent().show();
       $("input[name=staircases]").parent().parent().show();
       $("input[name=accel_high]").parent().parent().show();
       $("input[name=accel_low]").parent().parent().show();
@@ -157,15 +172,13 @@ Questions, suggestions, feature requests are welcome.
     else {
       $("input[name=drawspeed_slow]").parent().parent().hide();
       $("input[name=accel_segment]").parent().parent().hide();
-      $("input[name=accel_radius]").parent().parent().hide();
+      $("input[name=accel_corner]").parent().parent().hide();
       $("input[name=staircases]").parent().parent().hide();
       $("input[name=accel_high]").parent().parent().hide();
       $("input[name=accel_low]").parent().parent().hide();
       $("div[id=accel_desc]").hide();
     }
-    
 
-    
     if (mode == "text") {
       $("textarea[name=text_input]").parent().show();
       $("div[id=text_desc]").show();
@@ -175,6 +188,16 @@ Questions, suggestions, feature requests are welcome.
       $("div[id=text_desc]").hide();
     }
     
+    if (mode == "surfacing") {
+      $("input[name=stepover]").parent().parent().show();
+      $("input[name=direction]").parent().parent().show();
+      $("div[id=surfacing_desc]").show();
+    }
+    else {
+      $("input[name=stepover]").parent().parent().hide();
+      $("input[name=direction]").parent().parent().hide();
+      $("div[id=surfacing_desc]").hide();
+    }
   };
 
   function output_append(x) {
@@ -339,6 +362,81 @@ Questions, suggestions, feature requests are welcome.
     }
   }
   
+  function surfacing(xsize, ysize, stepover, direction, zup, zdn, rapid, vertical, drawspeed) {
+    var strokestart, strokeend, rowstart, rowend, horiz;
+    // orient so that we're always climb milling.  This should reduce the tilting of the router instead of increasing it.
+    if (direction == "E"){
+      // left to right, top to bottom
+      strokestart = 0;
+      strokeend = xsize;
+      rowstart = ysize;
+      rowend = 0;
+      horiz = true;
+    }
+    else if (direction == "W") {
+      // right to left, bottom to top
+      strokestart = xsize;
+      strokeend = 0;
+      rowstart = 0;
+      rowend = ysize;
+      horiz = true;
+    }
+    else if (direction == "N") {
+      // bottom to top, left to right
+      strokestart = 0;
+      strokeend = ysize;
+      rowstart = 0;
+      rowend = xsize;
+      horiz = false;
+    }
+    else if (direction == "S") {
+      // top to bottom, right to left
+      strokestart = ysize;
+      strokeend = 0;
+      rowstart = xsize;
+      rowend = 0;
+      horiz = false;
+    }
+    else {
+      alert("internal error, surfacing direction must be 'N', 'S', 'E', or 'W'");
+    }
+    // some of this code and logic can be universal for all four directions
+    var nrows = Math.ceil(Math.abs(rowend-rowstart)/stepover)+1;
+    // stepover is a guideline but we adjust possibly smaller so each row is equally spaced
+    var rowstep = (rowend-rowstart)/(nrows-1);
+    
+    // at speedslow mm per minute, speedslow/60 is mm per second and speedslow/300 is the distance 
+    // that would produce five movements per second
+    var fifth_second = drawspeed/300;
+    var stroke_segs = Math.ceil(Math.abs(strokeend-strokestart)/fifth_second)+1;  // how many segments to subdivide a stroke
+    var stroke_step = (strokeend-strokestart)/(stroke_segs-1);
+    for (var row=0; row < nrows; row++) {
+      var rowcoord = rowstart + row*rowstep;
+      var t_rowcoord = rowcoord.toFixed(3);
+      output_append("G1 " + zup + " F" + vertical);  // raise to zup
+      if (horiz) {
+        output_append("G1 X" + strokestart + " Y" + t_rowcoord + " F" + rapid);  // rapid move to rowcoord, strokestart
+      }
+      else {
+        output_append("G1 X" + t_rowcoord + " Y" + strokestart + " F" + rapid);  // rapid move to rowcoord, strokestart
+      }
+      output_append("G1 " + zdn + " F" + vertical);  // plunge to zdn
+      // start stroke counter at 1 because we're already at zero
+      for (var strokei=1; strokei < stroke_segs; strokei++) {
+        var strokecoord = strokestart + strokei*stroke_step;
+        var t_strokecoord = strokecoord.toFixed(3);
+        if (horiz) {
+          output_append("G1 X" + t_strokecoord + " Y" + t_rowcoord + " F" + drawspeed);  // move to rowcoord, strokecoord
+        }
+        else {
+          output_append("G1 X" + t_rowcoord + " Y" + t_strokecoord + " F" + drawspeed);  // move to rowcoord, strokecoord
+        }
+      }
+    }
+    output_append("G1 " + zup + " F" + vertical);  // raise to zup
+    output_append("G1 X0 Y0 F" + rapid);  // rapid move to 0,0
+  }
+  
   function generate() {
     // clear output in case it's been run already:
     document.getElementById('output').innerHTML = "";
@@ -363,6 +461,9 @@ Questions, suggestions, feature requests are welcome.
     var dense_efficient = $("input[name=dense_efficient]").prop('checked');
     var mode = $("input[name=mode]:checked").val();
     var textlines = $("textarea[name=text_input]").val().split('\n');
+    var stepover = parseFloat($("input[name=stepover]").val());
+    var direction = $("input[name=direction]").val();
+
     var longestline = 1;
     var textpitchx = 1;
     var textpitchy = 1;
@@ -409,6 +510,11 @@ Questions, suggestions, feature requests are welcome.
       output_append("; number of staircases: " + staircases);
       output_append("; high acceleration: " + accel_high + " mm/s^2");
       output_append("; low acceleration: " + accel_low + " mm/s^2");
+    }
+    
+    if (mode == "surfacing") {
+      output_append("; stepover: " + stepover + " mm");
+      output_append("; direction: " + direction);
     }
     
     var zup = " Z" + pen_u;
@@ -510,6 +616,15 @@ Questions, suggestions, feature requests are welcome.
       for (var i=0; i < gcode.length; i++) {
         output_append(gcode[i]);
       }
+    }
+
+    if (mode == "surfacing") {
+      direction = direction.toUpperCase();
+      if (direction != "E" && direction != "W" && direction != "N" && direction != "S") {
+        alert("direction must be N, S, E, or W");
+        return;
+      }
+      surfacing(xsize, ysize, stepover, direction, zup, zdn, rapid, vertical, drawspeed);
     }
     
     // name file <mode>-yyyy-mm-dd-hhmmss.gcode
