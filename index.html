@@ -25,15 +25,16 @@
 <input type="radio" name="mode" value="dense_segments"> Dense segments<br>
 <input type="radio" name="mode" value="accel"> Acceleration<br>
 <input type="radio" name="mode" value="text"> Text<br>
-<input type="radio" name="mode" value="surfacing"> Surfacing
+<input type="radio" name="mode" value="surfacing"> Surfacing<br>
+<input type="radio" name="mode" value="hog"> Hog-Out
 </td></tr>
 <tr><td>Start with G92 X0 Y0 Z0:</td><td><input type="checkbox" name="zero" checked></td></tr>
-<tr><td>Z level for pen-down:</td><td><input type="text" name="pen_d" value="-0.5", size="6"> mm</td></tr>
-<tr><td>Z level for pen-up:</td><td><input type="text" name="pen_u" value="0.5", size="6"> mm</td></tr>
+<tr><td name="z_pen_down_txt">Z level for pen-down:</td><td><input type="text" name="pen_d" value="-0.5", size="6"> mm</td></tr>
+<tr><td name="z_clearance_txt">Z level for pen-up:</td><td><input type="text" name="pen_u" value="0.5", size="6"> mm</td></tr>
 <tr><td>Rapid Feedrate:</td><td><input type="text" name="rapid" value="2000", size="6"> mm/min</td></tr>
 <tr><td>Raise/lower Feedrate:</td><td><input type="text" name="vertical" value="800", size="6"> mm/min</td></tr>
-<tr><td>Draw Feedrate:</td><td><input type="text" name="drawspeed" value="1000", size="6"> mm/min</td></tr>
-<tr><td>Draw Feedrate (slow):</td><td><input type="text" name="drawspeed_slow" value="200", size="6"> mm/min</td></tr>
+<tr><td name="drawspeed_txt">Draw Feedrate:</td><td><input type="text" name="drawspeed" value="1000", size="6"> mm/min</td></tr>
+<tr><td name="drawspeed_slow_txt">Draw Feedrate (slow):</td><td><input type="text" name="drawspeed_slow" value="200", size="6"> mm/min</td></tr>
 <tr><td>High Acceleration:</td><td><input type="text" name="accel_high" value="1000", size="6"> mm/sec^2</td></tr>
 <tr><td>Low Acceleration:</td><td><input type="text" name="accel_low" value="100", size="6"> mm/sec^2</td></tr>
 <tr><td>X Extent:</td><td><input type="text" name="xsize" value="100", size="6"> mm</td></tr>
@@ -45,8 +46,14 @@
 <tr><td>Dense segments min:</td><td><input type="text" name="dense_minseg" value="0.02", size="6"> mm</td></tr>
 <tr><td>Dense segments max:</td><td><input type="text" name="dense_maxseg" value="0.5", size="6"> mm</td></tr>
 <tr><td>Save bandwidth:</td><td><input type="checkbox" name="dense_efficient"></td></tr>
-<tr><td>Surfacing stepover:</td><td><input type="text" name="stepover" value="12", size="6"> mm</td></tr>
+<tr><td name="stepover_txt">Surfacing stepover:</td><td><input type="text" name="stepover" value="12", size="6"> mm</td></tr>
 <tr><td>Cutting direction:</td><td><input type="text" name="direction" value="E", size="6"> (N, S, E, or W)</td></tr>
+<tr><td>Orientation:</td><td><input type="text" name="orientation" value="X", size="6"> (X or Y)</td></tr>
+<tr><td>Pattern count:</td><td><input type="text" name="hog_count" value="1", size="6"></td></tr>
+<tr><td>Pattern offset:</td><td><input type="text" name="hog_offset" value="10", size="6"> mm</td></tr>
+<tr><td>Final feedrate:</td><td><input type="text" name="final_feedrate" value="1000", size="6"> mm</td></tr>
+<tr><td>Final stepover:</td><td><input type="text" name="final_stepover" value="3", size="6"> mm</td></tr>
+
 <tr><td></td><td><input type="button" value="Generate" onclick="generate()"></td></tr>
 </table>
 </td><td style="vertical-align:top">
@@ -110,6 +117,20 @@ If the router is not quite perpendicular, then one side will cut slightly deeper
 <p><span style="color:red">Note the recommended feedrates for surfacing are quite a bit slower than for drawing and must be chosen manually.  The defaults are unlikely to work well!</span>
 <p>Note that the X extent and Y extent are the extent of travel of the center of the cutting bit.  The pocket size will be larger by the diameter of the cutting bit.
 </div>
+<div id="hog_desc">
+<h1>Hog-Out Optimization</h1>
+For testing behavior at a given stepover, feedrate, and depth
+<p>
+Recommended starting values for wood with 1/8" bit: <br>
+Z height of cut: -6 mm<br>
+Z clearance level: 0.5 mm<br>
+Rapid Feedrate: 2000 mm/min<br>
+Raise/lower Feedrate: 180 mm/min<br>
+Cutting Feedrate: 600 mm/min<br>
+Slotting Feedrate (slow): 300 mm/min<br>
+Stepover: 1.5 mm
+
+</div>
 </td></tr></table>
 <div>
 Text:<br>
@@ -128,7 +149,7 @@ Questions, suggestions, feature requests are welcome.
   function show_options (mode) {
     // var mode = $(this).val();
     // zero, pen_d, pen_u, rapid, vertical, drawspeed are always shown
-    // xsize, ysize are also always shown
+    // xsize, ysize are hidden for 'hog' mode
     if (mode == "x" || mode == "y" || mode == "xy" || mode == "perim") {
       $("div[id=ruler_desc]").show();
     }
@@ -160,8 +181,14 @@ Questions, suggestions, feature requests are welcome.
       $("div[id=dense_seg_desc]").hide();
     }
     
-    if (mode == "accel") {
+    if (mode == "accel" || mode == "hog") {
       $("input[name=drawspeed_slow]").parent().parent().show();
+    }
+    else {
+      $("input[name=drawspeed_slow]").parent().parent().hide();
+    }
+    
+    if (mode == "accel") {
       $("input[name=accel_segment]").parent().parent().show();
       $("input[name=accel_corner]").parent().parent().show();
       $("input[name=staircases]").parent().parent().show();
@@ -170,7 +197,6 @@ Questions, suggestions, feature requests are welcome.
       $("div[id=accel_desc]").show();
     }
     else {
-      $("input[name=drawspeed_slow]").parent().parent().hide();
       $("input[name=accel_segment]").parent().parent().hide();
       $("input[name=accel_corner]").parent().parent().hide();
       $("input[name=staircases]").parent().parent().hide();
@@ -189,14 +215,50 @@ Questions, suggestions, feature requests are welcome.
     }
     
     if (mode == "surfacing") {
-      $("input[name=stepover]").parent().parent().show();
       $("input[name=direction]").parent().parent().show();
       $("div[id=surfacing_desc]").show();
     }
     else {
-      $("input[name=stepover]").parent().parent().hide();
       $("input[name=direction]").parent().parent().hide();
       $("div[id=surfacing_desc]").hide();
+    }
+    
+    if (mode == "surfacing" || mode == "hog") {
+      $("input[name=stepover]").parent().parent().show();
+      $("td[name=z_pen_down_txt]")[0].innerHTML = "Z height of cut (usually negative):";
+      $("td[name=z_clearance_txt]")[0].innerHTML = "Z clearance level:";
+      $("td[name=drawspeed_txt]")[0].innerHTML = "Cutting Feedrate:";
+    }
+    else {
+      $("td[name=z_pen_down_txt]")[0].innerHTML = "Z level for pen-down:";
+      $("td[name=z_clearance_txt]")[0].innerHTML = "Z level for pen-up:";
+      $("td[name=drawspeed_txt]")[0].innerHTML = "Draw Feedrate:";
+      $("input[name=stepover]").parent().parent().hide();
+    }
+
+    if (mode == "hog") {
+      $("td[name=stepover_txt]")[0].innerHTML = "Stepover:";
+      $("td[name=drawspeed_slow_txt]")[0].innerHTML = "Slotting Feedrate (slow):";
+      $("input[name=orientation]").parent().parent().show();
+      $("input[name=xsize]").parent().parent().hide();
+      $("input[name=ysize]").parent().parent().hide();
+      $("input[name=hog_count]").parent().parent().show();
+      $("input[name=hog_offset]").parent().parent().show();
+      $("input[name=final_feedrate]").parent().parent().show();
+      $("input[name=final_stepover]").parent().parent().show();
+      $("div[id=hog_desc]").show();
+    }
+    else {
+      $("td[name=stepover_txt]")[0].innerHTML = "Surfacing stepover:";
+      $("td[name=drawspeed_slow_txt]")[0].innerHTML = "Draw Feedrate (slow):";
+      $("input[name=orientation]").parent().parent().hide();
+      $("input[name=xsize]").parent().parent().show();
+      $("input[name=ysize]").parent().parent().show();
+      $("input[name=hog_count]").parent().parent().hide();
+      $("input[name=hog_offset]").parent().parent().hide();
+      $("input[name=final_feedrate]").parent().parent().hide();
+      $("input[name=final_stepover]").parent().parent().hide();
+      $("div[id=hog_desc]").hide();
     }
   };
 
@@ -437,6 +499,130 @@ Questions, suggestions, feature requests are welcome.
     output_append("G1 X0 Y0 F" + rapid);  // rapid move to 0,0
   }
   
+  function top_hat_dbl(xstart, ystart, xend, yend, height, brim, zup, zdn, rapid, vertical, drawspeed, offs) {
+    // perform double top-hat with a bit of stock to leave on first pass
+    // first calculate left direction
+    var dx = xend-xstart;
+    var dy = yend-ystart;
+    var oal = Math.sqrt(dx*dx + dy*dy);
+    var xu = dx/oal;
+    var yu = dy/oal;
+    var xl = -yu;
+    var yl = xu;
+    
+    // add offs * xl to first pass
+    var xstart_off = xstart + xl*offs;
+    var ystart_off = ystart + yl*offs;
+    var xend_off = xend + xl*offs;
+    var yend_off = yend + yl*offs;
+    output_append("; top hat with stock to leave");
+    top_hat(xstart_off, ystart_off, xend_off, yend_off, height, brim, zup, zdn, rapid, vertical, drawspeed);
+    
+    // second pass follows regular geometry
+    output_append("; top hat finishing");
+    top_hat(xstart, ystart, xend, yend, height, brim, zup, zdn, rapid, vertical, drawspeed);
+  }
+  
+  function top_hat(xstart, ystart, xend, yend, height, brim, zup, zdn, rapid, vertical, drawspeed) {
+    // top-hat function from xstart, ystart to xend, yend, height of h and brim size of b
+    var dx = xend-xstart;
+    var dy = yend-ystart;
+    
+    // overal length = sqrt((x1-x2)^2 + (y1-y2)^2)
+    var oal = Math.sqrt(dx*dx + dy*dy);
+    // overall length should be nonzero, do we have to check for it?
+    // actually it must be at least 2*brim, let's check for that
+    if (oal <= 2*brim) {
+      alert("internal error, invalid top hat parameters");  // should be impossible unless there are bugs somewhere
+      return;
+    }
+    
+    // unit vector in direction from x1,y1 to x2,y2 is (xu, yu) = (x2-x1, y2-y1)/length;
+    var xu = dx/oal;
+    var yu = dy/oal;
+    
+    // unit vector to left (90 degrees counter-clockwise) is (xl, yl) = (-yu, xu)
+    var xl = -yu;
+    var yl = xu;
+    
+    // intermediate points xA, yA, xB, yB, xC, yC, xD, yD
+    // A = start + u*brim
+    var xA = xstart + xu*brim;
+    var yA = ystart + yu*brim;
+    
+    // B = A + l*height
+    var xB = xA + xl*height;
+    var yB = yA + yl*height;
+    
+    // D = end - u*brim
+    var xD = xend - xu*brim;
+    var yD = yend - yu*brim;
+    
+    // C = D + l*height
+    var xC = xD + xl*height;
+    var yC = yD + yl*height;
+    
+    var fspeed = " F" + Math.round(drawspeed);
+    
+    // move to x1, y1, and plunge to z depth
+    output_append("G1" + zup + " F" + vertical);
+    output_append("G1 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
+    output_append("G1" + zdn + " F" + vertical);
+    
+    // Travel to A, B, C, D, and end
+    output_append("G1 X" + xA.toFixed(3) + " Y" + yA.toFixed(3) + fspeed);
+    output_append("G1 X" + xB.toFixed(3) + " Y" + yB.toFixed(3) + fspeed);
+    output_append("G1 X" + xC.toFixed(3) + " Y" + yC.toFixed(3) + fspeed);
+    output_append("G1 X" + xD.toFixed(3) + " Y" + yD.toFixed(3) + fspeed);
+    output_append("G1 X" + xend.toFixed(3) + " Y" + yend.toFixed(3) + fspeed);
+
+    // Then raise up
+    output_append("G1" + zup + " F" + vertical);
+  }
+  
+  function full_speed_swipe(xstart, ystart, xend, yend, zup, zdn, rapid, vertical, drawspeed) {
+    output_append("; full speed cut");
+    // move to x1, y1, and plunge to z depth
+    output_append("G1" + zup + " F" + vertical);
+    output_append("G1 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
+    output_append("G1" + zdn + " F" + vertical);
+    
+    // plow through from start to end
+    output_append("G1 X" + xend.toFixed(3) + " Y" + yend.toFixed(3) + " F" + Math.round(drawspeed));
+    
+    // Then raise up
+    output_append("G1" + zup + " F" + vertical);
+  }
+  
+  function hog_test_x(cornerx, cornery, stepover, zup, zdn, rapid, vertical, drawspeed_slow, drawspeed) {
+      var xstart = cornerx;
+      var ystart = cornery;
+      var xend = cornerx + 60;
+      var yend = cornery;
+      var height = stepover;
+      var brim = 15;
+      var stock_to_leave = 0.2;  // first pass leaves this much
+      
+      top_hat_dbl(xstart, ystart, xend, yend, height, brim, zup, zdn, rapid, vertical, drawspeed_slow, stock_to_leave);
+      
+      full_speed_swipe(xstart, ystart, xend, yend, zup, zdn, rapid, vertical, drawspeed)      
+  }
+  
+  function hog_test_y(cornerx, cornery, stepover, zup, zdn, rapid, vertical, drawspeed_slow, drawspeed) {
+      var xstart = cornerx;
+      var ystart = cornery + 60;
+      var xend = cornerx;
+      var yend = cornery;
+      var height = stepover;
+      var brim = 15;
+      var stock_to_leave = 0.2;  // first pass leaves this much
+      
+      top_hat_dbl(xstart, ystart, xend, yend, height, brim, zup, zdn, rapid, vertical, drawspeed_slow, stock_to_leave);
+      
+      full_speed_swipe(xstart, ystart, xend, yend, zup, zdn, rapid, vertical, drawspeed)      
+  }
+  
+  
   function generate() {
     // clear output in case it's been run already:
     document.getElementById('output').innerHTML = "";
@@ -463,6 +649,11 @@ Questions, suggestions, feature requests are welcome.
     var textlines = $("textarea[name=text_input]").val().split('\n');
     var stepover = parseFloat($("input[name=stepover]").val());
     var direction = $("input[name=direction]").val();
+    var orientation = $("input[name=orientation]").val();
+    var hog_count = parseFloat($("input[name=hog_count]").val());
+    var hog_offset = parseFloat($("input[name=hog_offset]").val());
+    var final_feedrate = parseFloat($("input[name=final_feedrate]").val());
+    var final_stepover = parseFloat($("input[name=final_stepover]").val());
 
     var longestline = 1;
     var textpitchx = 1;
@@ -477,14 +668,24 @@ Questions, suggestions, feature requests are welcome.
       textpitchy = ysize / textlines.length;
     }
     
-    output_append("; pen down z level: " + pen_d);
-    output_append("; pen up z level: " + pen_u);
-    output_append("; rapid feedrate: " + rapid);
-    output_append("; raise/lower feedrate: " + vertical);
-    output_append("; drawing feedrate: " + drawspeed);
-    output_append("; x extent: " + xsize);
-    output_append("; y extent: " + ysize);
     output_append("; mode: " + mode);
+    
+    output_append("; rapid feedrate: " + rapid + " mm/min");
+    output_append("; raise/lower feedrate: " + vertical + " mm/min");
+    
+    if (mode != "hog") {
+      // all non-hog mode use the normal names and include xsize and ysize
+      output_append("; pen down z level: " + pen_d);
+      output_append("; pen up z level: " + pen_u);
+      output_append("; drawing feedrate: " + drawspeed + " mm/min");
+      output_append("; x extent: " + xsize);
+      output_append("; y extent: " + ysize);
+    }
+    else {
+      output_append("; z height of cut: " + pen_d);
+      output_append("; clearance z height: " + pen_u);
+      output_append("; cutting feedrate: " + drawspeed + " mm/min");
+    }
     
     if (mode == "ztest_corners" || mode == "ztest_grid") {
       output_append("; zxsize: " + zxsize);
@@ -515,6 +716,12 @@ Questions, suggestions, feature requests are welcome.
     if (mode == "surfacing") {
       output_append("; stepover: " + stepover + " mm");
       output_append("; direction: " + direction);
+    }
+    
+    if (mode == "hog") {
+      output_append("; slotting feedrate: " + drawspeed_slow + " mm/min");
+      output_append("; stepover: " + stepover + " mm");
+      output_append("; orientation: " + orientation);
     }
     
     var zup = " Z" + pen_u;
@@ -625,6 +832,48 @@ Questions, suggestions, feature requests are welcome.
         return;
       }
       surfacing(xsize, ysize, stepover, direction, zup, zdn, rapid, vertical, drawspeed);
+    }
+    
+    if (mode == "hog") {
+      var speed_step = (final_feedrate - drawspeed)/(hog_count-1);  // may be nan if hog_count is 1
+      var stepover_step = (final_stepover - stepover)/(hog_count-1);
+      
+      // First print list of stepover, feedrate combinations attempted
+      for (var i=0; i < hog_count; i++) {
+        if (i == 0) {
+          var vol = -pen_d*drawspeed*stepover;
+          output_append("; feedrate " + drawspeed + " mm/min, stepover " + stepover.toFixed(3) + " mm, volumetric " + Math.round(vol) + " mm3 per sec");
+        }
+        else {
+          var vol = -pen_d*(drawspeed+i*speed_step)*(stepover+i*stepover_step);
+          output_append("; feedrate " + Math.round(drawspeed+i*speed_step) + " mm/min, stepover " + (stepover+i*stepover_step).toFixed(3) + " mm, volumetric " + Math.round(vol) + " mm3 per sec");
+        }
+      }
+      
+      if (orientation == "X" || orientation == "x") {
+        for (var i=0; i < hog_count; i++) {
+          if (i == 0) {
+            hog_test_x(0, 0, stepover, zup, zdn, rapid, vertical, drawspeed_slow, drawspeed);
+          }
+          else {
+            hog_test_x(0, i*hog_offset, stepover+i*stepover_step, zup, zdn, rapid, vertical, drawspeed_slow, drawspeed+i*speed_step);
+          }
+        }
+      }
+      else if (orientation == "Y" || orientation == "y") {
+        for (var i=0; i < hog_count; i++) {
+          if (i == 0) {
+            hog_test_y(0, 0, stepover, zup, zdn, rapid, vertical, drawspeed_slow, drawspeed);
+          }
+          else {
+            hog_test_y(i*hog_offset, 0, stepover+i*stepover_step, zup, zdn, rapid, vertical, drawspeed_slow, drawspeed+i*speed_step);
+          }
+        }
+      }
+      else {
+        alert("orientation must be X or Y");
+        return;
+      }
     }
     
     // name file <mode>-yyyy-mm-dd-hhmmss.gcode
