@@ -23,7 +23,8 @@
 <input type="radio" name="mode" value="ztest_corners"> Z test four corners<br>
 <input type="radio" name="mode" value="ztest_grid"> Z test grid<br>
 <input type="radio" name="mode" value="dense_segments"> Dense segments<br>
-<input type="radio" name="mode" value="accel"> Acceleration<br>
+<input type="radio" name="mode" value="accel_x"> X Acceleration<br>
+<input type="radio" name="mode" value="accel_y"> Y Acceleration<br>
 <input type="radio" name="mode" value="text"> Text<br>
 <input type="radio" name="mode" value="surfacing"> Surfacing<br>
 <input type="radio" name="mode" value="hog"> Hog-Out
@@ -35,13 +36,14 @@
 <tr><td>Raise/lower Feedrate:</td><td><input type="text" name="vertical" value="800", size="6"> mm/min</td></tr>
 <tr><td name="drawspeed_txt">Draw Feedrate:</td><td><input type="text" name="drawspeed" value="1000", size="6"> mm/min</td></tr>
 <tr><td name="drawspeed_slow_txt">Draw Feedrate (slow):</td><td><input type="text" name="drawspeed_slow" value="200", size="6"> mm/min</td></tr>
-<tr><td>High Acceleration:</td><td><input type="text" name="accel_high" value="1000", size="6"> mm/sec^2</td></tr>
 <tr><td>Low Acceleration:</td><td><input type="text" name="accel_low" value="100", size="6"> mm/sec^2</td></tr>
+<tr><td>High Acceleration:</td><td><input type="text" name="accel_high" value="1000", size="6"> mm/sec^2</td></tr>
+<tr><td>Number of Accel Tests:</td><td><input type="text" name="accel_tests" value="10", size="6"> (count)</td></tr>
+
 <tr><td>X Extent:</td><td><input type="text" name="xsize" value="100", size="6"> mm</td></tr>
 <tr><td>Y Extent:</td><td><input type="text" name="ysize" value="100", size="6"> mm</td></tr>
-<tr><td>Segment Length:</td><td><input type="text" name="accel_segment" value="20", size="6"> mm</td></tr>
-<tr><td>Corner Radius:</td><td><input type="text" name="accel_corner" value="0", size="6"> mm</td></tr>
-<tr><td>Number of Staircases:</td><td><input type="text" name="staircases" value="10", size="6"> (count)</td></tr>
+<!-- <tr><td>Segment Length:</td><td><input type="text" name="accel_segment" value="20", size="6"> mm</td></tr>
+<tr><td>Corner Radius:</td><td><input type="text" name="accel_corner" value="0", size="6"> mm</td></tr> -->
 <tr><td>Z Test Cross Size:</td><td><input type="text" name="zxsize" value="14", size="6"> mm</td></tr>
 <tr><td>Dense segments min:</td><td><input type="text" name="dense_minseg" value="0.02", size="6"> mm</td></tr>
 <tr><td>Dense segments max:</td><td><input type="text" name="dense_maxseg" value="0.5", size="6"> mm</td></tr>
@@ -59,9 +61,9 @@
 </td><td style="vertical-align:top">
 <div id="ruler_desc">
 <h1>Ruler Mode</h1>
-This mode draws many short (~10 mm) segments 1mm apart, with the end result resembling a ruler. These rulers are drawn in pairs, with two rulers drawn next to each other, but drawn in opposite directions.
-<p>
-These are potentially useful for identifying errors in steps per mm, not only for uniform spacing error, but also for nonuniform errors in spacing.  These should be uncommon but the test pattern can help identify it or rule it out.  By drawing two rulers in opposite directions, backlash (or other similar effects) can be detected.  The "perimeter ruler" can also be used to determine whether the machine is square by comparing the diagonals (although it is not a particularly efficient test pattern for just determining squareness).
+<p>This mode draws many short (~10 mm) segments 1mm apart, with the end result resembling a ruler. These rulers are drawn in pairs, with two rulers drawn next to each other, but drawn in opposite directions.
+</p><p>
+These are potentially useful for identifying errors in steps per mm, not only for uniform spacing error, but also for nonuniform errors in spacing.  These should be uncommon but the test pattern can help identify it or rule it out.  By drawing two rulers in opposite directions, backlash (or other similar effects) can be detected.  The "perimeter ruler" can also be used to determine whether the machine is square by comparing the diagonals (although it is not a particularly efficient test pattern for just determining squareness).</p>
 <ul><li>
 X ruler draws a pair of adjacent rulers along the positive X axis.  The "X Extent" setting determines the length to be created.
 </li><li>
@@ -70,57 +72,102 @@ Y ruler draws a pair of adjacent rulers along the positive Y axis.  The "Y Exten
 X and Y ruler draws both of the above.
 </li><li>
 Perimeter ruler draws four (pairs of) rulers around the perimeter within a rectangle whose dimensions are specified by X extent and Y extent.
-</li><ul>
+</li></ul>
 </div>
 <div id="ztest_desc">
 <h1>Z-Test Mode</h1>
-These modes, Z-Test four corners and Z-Test grid, are for checking whether the work surface is level and flat.
-<p>
+<p>These modes, Z-Test four corners and Z-Test grid, are for checking whether the work surface is level and flat.
+</p><p>
 These work by drawing "X" shaped marks, where the pen descends (lowers Z) at a shallow angle as it approaches the center of the X, and then slowly rises (increasing Z) as it moves away from the center of the X.  Small differences in the height of the surface create longer or shorter pen marks, effectively amplifying surface height errors to be more easily visible.
-<p>
+</p><p>
 The Z Test Cross Size setting specifies the horizontal and vertical dimension of the "X" shape.  The default value of 14 mm has a corner-to-corner diagonal length of about 20 mm, or corner-to-center length of about 10 mm.  With a Z travel of 1 mm (from +0.5 to -0.5) the shallow descent and ascent is at a slope of about 1:10.  This means a Z displacement is reflected in segment length amplified by a factor of 20.
-<p>
+</p><p>
 For Z-Test grid mode, as many as possible "X" shapes are fit, evenly spaced, within the specified X and Y extent.
+</p>
 </div>
 <div id="dense_seg_desc">
 <h1>Dense Segments</h1>
-To test parsing and communication speed, this generates line segments that are drawn using a large number of very short G1 segments end-to-end in the same direction.
-<p>
+<p>To test parsing and communication speed, this generates line segments that are drawn using a large number of very short G1 segments end-to-end in the same direction.
+</p><p>
 The lines are drawn in the positive X direction, and the total length is determined by X Extent.
 
 Multiple subdivision lengths are tested, each offset by 1 mm in the Y direction.  The Y Extent determines the Y size of the final drawn pattern, which is also the number of subdivision lengths to be tested.  The "Dense segments min" is the smallest subdivision length that is tested, and the "Dense segments max" is the largest subdivision length.  For each 1 mm increment in the Y direction, the subdivision length is increased linearly between the min and max.
-<p>
+</p><p>
 The g-code also contains comments showing the subdivision lengths before each line is drawn.
-<p>
+</p><p>
 As an additional option to see the possible influence on processing speed, a more efficient mode can be enabled by checking "Save bandwidth".  This generates the same toolpath but does not repeat the Z, Y, or F values any more than necessary.
+</p>
 </div>
 <div id="accel_desc">
 <h1>Acceleration Not Yet Implemented</h1>
-Eventually will generate gcode to test acceleration, assuming "junction deviation" approach is being used.
+<p>Generates gcode to test acceleration.  Assumes junction deviation is being used, in 
+which case "jerk" (instantaneous speed change for low enough speed difference) should not be in effect.
+</p><p>
+The generated g-code will issue M501 at the beginning and at the end, to minimize the chance that modified
+acceleration settings will leave the machine in a bad state.
+</p><p>
+The basic idea for (let's say x acceleration) is:
+<ol>
+<li>Draw a short segment in the positive y direction
+<li>Set high acceleration using M204 to set the default travel acceleration and M201 to set the max acceleration for the axis being tested (X or Y)
+<li>Move slowly ramping up speed in +x direction and change direction suddenly to the -x 
+direction and gradually slow to a stop
+<li>Set default and max acceleration back to default value of 180
+<li>Draw a short segment directly above the line from step 1
+<li>Move over in +x direction a bit and repeat from step 1
+</ol>
+<ul>
+<li>The low acceleration is the minimum acceleration of the test.
+<li>The high acceleration is the maximum acceleration of the test
+<li>The number of accel tests is the number of segment, high acceleration sequence, segment iterations
+<li>The segments are always 10mm long with a 1mm gap between them
+<li>The drawing feedrate is used to draw the two segments
+<li>The sideways step between acceleration tests is always 2mm
+<li>The rapid feedrate is the speed at which the acceleration is tested
+<li>The X (or Y) extent is the length of the ramp
+
+</ul>
+<pre>
+
+V1 Marlin Defaults (as of version 421):
+#define S_CURVE_ACCELERATION
+
+// mm/s
+#define DEFAULT_MAX_FEEDRATE          { 50, 50, 15, 25 }
+
+// mm/s^2
+#define DEFAULT_MAX_ACCELERATION      { 180, 180, 80, 180 }
+#define DEFAULT_ACCELERATION          180    // X, Y, Z and E acceleration for printing moves
+#define DEFAULT_RETRACT_ACCELERATION  3000    // E acceleration for retracts
+#define DEFAULT_TRAVEL_ACCELERATION   180    // X, Y, Z acceleration for travel (non printing) moves
+</pre>
+</p>
 </div>
 <div id="text_desc">
 <h1>Text Generation</h1>
-Generates toolpaths from text, using a fixed-width font, which is potentially useful for ASCII art.
-<p>
+<p>Generates toolpaths from text, using a fixed-width font, which is potentially useful for ASCII art.
+</p><p>
 <span style="color:red">This requires firmware support for G5 (Bezier splines)!</span>  This is not enabled by default in MPCNC firmware, but it is fairly straightforward to enable.
-<p>
+</p><p>
 The text is stretched to fill a rectangle defined by X Extent and Y Extent.  This can create extremely stretched or squished characters which might not be desirable.  Strongly recommended: look in the g-code comments at the x pitch and y pitch and y/x aspect ratio, which can indicate if the generated text is likely to be of the size and proportion you want.
+</p>
 </div>
 <div id="surfacing_desc">
 <h1>Spoil Board (or Workpiece) Surfacing</h1>
-Generates strokes at a given depth traveling in only one direction.
-<p>
+<p>Generates strokes at a given depth traveling in only one direction.
+</p><p>
 If the router is not quite perpendicular, then one side will cut slightly deeper than the other.   This is not normally an issue for small-diameter bits but the amplitude is larger for large-diameter bits.
-<p>It is assumed that the bits are intended for cutting radially and not on axially, so the deeper-cutting side should be the leading side.  A standard pocketing tool path from Estlcam for example will traverse back and forth in opposite directions.  With the deeper side leading, it will cut radially, but in the opposite direction the leading edge will cut slightly shallow and the trailing edge will cut axially or possibly rub and generate heat.
-<p>Therefore the cutting strategy for this cut is to cut only one direction, lifting the bit between cuts.  The cutting direction is specified and must be "N", "S", "E", or "W", which cut in the +Y, -Y, +X, and -X directions, respectively.
-<p>As an added feature, the cutting toolpath is split into relatively small segments instead of being single, very long G1 movements, which allows dynamic adjustment of the feedrate via the Octoprint interface or the LCD.
-<p><span style="color:red">Note the recommended feedrates for surfacing are quite a bit slower than for drawing and must be chosen manually.  The defaults are unlikely to work well!</span>
-<p>Note that the X extent and Y extent are the extent of travel of the center of the cutting bit.  The pocket size will be larger by the diameter of the cutting bit.
+</p><p>It is assumed that the bits are intended for cutting radially and not on axially, so the deeper-cutting side should be the leading side.  A standard pocketing tool path from Estlcam for example will traverse back and forth in opposite directions.  With the deeper side leading, it will cut radially, but in the opposite direction the leading edge will cut slightly shallow and the trailing edge will cut axially or possibly rub and generate heat.
+</p><p>Therefore the cutting strategy for this cut is to cut only one direction, lifting the bit between cuts.  The cutting direction is specified and must be "N", "S", "E", or "W", which cut in the +Y, -Y, +X, and -X directions, respectively.
+</p><p>As an added feature, the cutting toolpath is split into relatively small segments instead of being single, very long G1 movements, which allows dynamic adjustment of the feedrate via the Octoprint interface or the LCD.
+</p><p><span style="color:red">Note the recommended feedrates for surfacing are quite a bit slower than for drawing and must be chosen manually.  The defaults are unlikely to work well!</span>
+</p><p>Note that the X extent and Y extent are the extent of travel of the center of the cutting bit.  The pocket size will be larger by the diameter of the cutting bit.
+</p>
 </div>
 <div id="hog_desc">
 <h1>Hog-Out Optimization</h1>
-For testing behavior at a given stepover, feedrate, and depth
-<p>
+<p>For testing behavior at a given stepover, feedrate, and depth
+</p><p>
 Recommended starting values for wood with 1/8" bit: <br>
 Z height of cut: -6 mm<br>
 Z clearance level: 0.5 mm<br>
@@ -129,7 +176,7 @@ Raise/lower Feedrate: 180 mm/min<br>
 Cutting Feedrate: 600 mm/min<br>
 Slotting Feedrate (slow): 300 mm/min<br>
 Stepover: 1.5 mm
-
+</p>
 </div>
 </td></tr></table>
 <div>
@@ -181,25 +228,25 @@ Questions, suggestions, feature requests are welcome.
       $("div[id=dense_seg_desc]").hide();
     }
     
-    if (mode == "accel" || mode == "hog") {
+    if (mode == "hog") {
       $("input[name=drawspeed_slow]").parent().parent().show();
     }
     else {
       $("input[name=drawspeed_slow]").parent().parent().hide();
     }
     
-    if (mode == "accel") {
-      $("input[name=accel_segment]").parent().parent().show();
-      $("input[name=accel_corner]").parent().parent().show();
-      $("input[name=staircases]").parent().parent().show();
+    if (mode == "accel_x" || mode == "accel_y") {
+      //$("input[name=accel_segment]").parent().parent().show();
+      //$("input[name=accel_corner]").parent().parent().show();
+      $("input[name=accel_tests]").parent().parent().show();
       $("input[name=accel_high]").parent().parent().show();
       $("input[name=accel_low]").parent().parent().show();
       $("div[id=accel_desc]").show();
     }
     else {
-      $("input[name=accel_segment]").parent().parent().hide();
-      $("input[name=accel_corner]").parent().parent().hide();
-      $("input[name=staircases]").parent().parent().hide();
+      //$("input[name=accel_segment]").parent().parent().hide();
+      //$("input[name=accel_corner]").parent().parent().hide();
+      $("input[name=accel_tests]").parent().parent().hide();
       $("input[name=accel_high]").parent().parent().hide();
       $("input[name=accel_low]").parent().parent().hide();
       $("div[id=accel_desc]").hide();
@@ -622,6 +669,75 @@ Questions, suggestions, feature requests are welcome.
       full_speed_swipe(xstart, ystart, xend, yend, zup, zdn, rapid, vertical, drawspeed)      
   }
   
+  function accel_pre(mode, i, zup, zdn, rapid, vertical, drawspeed) {
+    // draw 10 mm segment prior to running acceleration test
+    var xstart = (mode == 'accel_x') ? 2*i :  0;
+    var xend   = (mode == 'accel_x') ? 2*i : 10;
+    var ystart = (mode == 'accel_x') ?   0 : 2*i;
+    var yend   = (mode == 'accel_x') ?  10 : 2*i;
+
+    var xpre = xstart+5;
+    var ypre = ystart+5;
+    
+    // raise pen
+    output_append("G1" + zup + " F" + vertical);
+    // move to xpre, ypre
+    output_append("G1 X" + xpre.toFixed(3) + " Y" + ypre.toFixed(3) + " F" + rapid);
+    // move to xstart, ystart
+    output_append("G1 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
+    // lower pen
+    output_append("G1" + zdn + " F" + vertical);
+    // move to xend, yend
+    output_append("G1 X" + xend.toFixed(3) + " Y" + yend.toFixed(3) + " F" + drawspeed);
+    // raise pen
+    output_append("G1" + zup + " F" + vertical);
+  }
+  
+  function accel_execute(mode, i, extent, rapid) {
+    var subdiv = 40; // subdivide extent into this many smaller segments
+    var xstart = (mode == 'accel_x') ? 2*i : 10;
+    var ystart = (mode == 'accel_x') ?  10 : 2*i;
+    var xstep = (mode == 'accel_x') ? extent/subdiv : 0;
+    var ystep = (mode == 'accel_x') ? 0 : extent/subdiv;
+    
+    for (var i=1; i <= subdiv; i++) {
+      var x = xstart + i*xstep;
+      var y = ystart + i*ystep;
+      var vel = rapid * Math.sqrt(i / subdiv);
+      output_append("G1 X" + x.toFixed(3) + " Y" + y.toFixed(3) + " F" + Math.round(vel));
+    }
+    
+    for (var i=subdiv-1; i >= 0; i--) {
+      var x = xstart + i*xstep;
+      var y = ystart + i*ystep;
+      var vel = rapid * Math.sqrt((i+1) / subdiv);
+      output_append("G1 X" + x.toFixed(3) + " Y" + y.toFixed(3) + " F" + Math.round(vel));
+    }
+  }
+  
+  function accel_post(mode, i, zup, zdn, rapid, vertical, drawspeed) {
+    // draw second 10mm segment after running acceleration test
+    var xstart = (mode == 'accel_x') ? 2*i : 11;
+    var xend   = (mode == 'accel_x') ? 2*i : 21;
+    var ystart = (mode == 'accel_x') ?  11 : 2*i;
+    var yend   = (mode == 'accel_x') ?  21 : 2*i;
+    
+    var xpre = xstart+5;
+    var ypre = ystart+5;
+    
+    // raise pen
+    output_append("G1" + zup + " F" + vertical);
+    // move to xpre, ypre
+    output_append("G1 X" + xpre.toFixed(3) + " Y" + ypre.toFixed(3) + " F" + rapid);
+    // move to xstart, ystart
+    output_append("G1 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
+    // lower pen
+    output_append("G1" + zdn + " F" + vertical);
+    // move to xend, yend
+    output_append("G1 X" + xend.toFixed(3) + " Y" + yend.toFixed(3) + " F" + drawspeed);
+    // raise pen
+    output_append("G1" + zup + " F" + vertical);
+  }
   
   function generate() {
     // clear output in case it's been run already:
@@ -636,9 +752,9 @@ Questions, suggestions, feature requests are welcome.
     var ysize = parseFloat($("input[name=ysize]").val());
     var xsize = parseFloat($("input[name=xsize]").val());
     var zxsize = parseFloat($("input[name=zxsize]").val());
-    var accel_segment = parseFloat($("input[name=accel_segment]").val());
-    var accel_corner = parseFloat($("input[name=accel_corner]").val());
-    var staircases = parseFloat($("input[name=staircases]").val());
+    //var accel_segment = parseFloat($("input[name=accel_segment]").val());
+    //var accel_corner = parseFloat($("input[name=accel_corner]").val());
+    var accel_tests = parseFloat($("input[name=accel_tests]").val());
     var drawspeed_slow = parseFloat($("input[name=drawspeed_slow]").val());
     var accel_high = parseFloat($("input[name=accel_high]").val());
     var accel_low = parseFloat($("input[name=accel_low]").val());
@@ -704,11 +820,11 @@ Questions, suggestions, feature requests are welcome.
       output_append("; y/x aspect ratio: " + (textpitchy/textpitchx) + " ideally should be about 2, or at least between 1 and 4");
     }
     
-    if (mode == "accel") {
-      output_append("; slow drawing feedrate: " + drawspeed_slow + " mm/min");
-      output_append("; segment length: " + accel_segment + " mm");
-      output_append("; corner radius: " + accel_corner + " mm");
-      output_append("; number of staircases: " + staircases);
+    if (mode == "accel_x" || mode == "accel_y") {
+      // output_append("; slow drawing feedrate: " + drawspeed_slow + " mm/min");
+      // output_append("; segment length: " + accel_segment + " mm");
+      // output_append("; corner radius: " + accel_corner + " mm");
+      output_append("; number of accel tests: " + accel_tests);
       output_append("; high acceleration: " + accel_high + " mm/s^2");
       output_append("; low acceleration: " + accel_low + " mm/s^2");
     }
@@ -793,24 +909,40 @@ Questions, suggestions, feature requests are welcome.
       }
     }
 
-    if (mode == "accel") {
-      var xstart = 0;
-      var ystart = ysize/2;
-      var xsegs_max = Math.floor(xsize/2/accel_segment);
-      var ysegs_max = Math.floor(ysize/2/accel_segment);
-      ysegs_max = Math.min(ysegs_max, xsegs_max);
-      xsegs_max = Math.min(xsegs_max, ysegs_max+1);
-      var numsegs = ysegs_max + xsegs_max;
-      var xstep = xsize/2/(staircases-1);
-      var ystep = -ysize/2/(staircases-1);
-      var acc_step = (accel_high - accel_low)/(staircases-1);
-      for (var i=0; i < staircases; i++) {
-        var accel = Math.round(accel_high - acc_step*i);
-        output_append("M201 X" + accel + " Y" + accel);
-        output_append("M204 T" + accel);
-        output_append("G4 S0");
-        xy_stairs(xstart+xstep*i, ystart+ystep*i, accel_segment, numsegs, zup, zdn, rapid, vertical, accel_corner, drawspeed, drawspeed_slow);
+    if (mode == "accel_x" || mode == "accel_y") {
+      output_append("M501");
+      
+      var base_accel = 180;
+      var extent = ((mode == "accel_x") ? xsize : ysize);
+      var accel_incr = (accel_tests == 1) ? 0 : (accel_high - accel_low)/(accel_tests-1);
+      
+      // accel_tests is the number of tests to run
+      for (var i=0; i < accel_tests; i++) {
+        accel_pre(mode, i, zup, zdn, rapid, vertical, drawspeed);  // draw 10 mm segment prior to running acceleration test
+        
+        // Calculate acceleration value for this test and set it
+        var accel_value = Math.round(accel_low + i*accel_incr);
+        output_append("M400");
+        if (mode == "accel_x") {
+          output_append("M201 X" + accel_value);
+        }
+        else {
+          output_append("M201 Y" + accel_value);
+        }
+        output_append("M204 T" + accel_value);
+        output_append("M400");
+        
+        accel_execute(mode, i, extent, rapid);
+        
+        // Set acceleration back to base value of 180
+        output_append("M400");
+        output_append("M201 X" + base_accel + " Y" + base_accel);
+        output_append("M204 T" + base_accel);
+        output_append("M400");
+        
+        accel_post(mode, i, zup, zdn, rapid, vertical, drawspeed);  // draw second 10mm segment after running acceleration test
       }
+      
       output_append("G1" + zup + " F" + vertical);
       output_append("G1 X0 Y0 F" + rapid);
       output_append("M501");
