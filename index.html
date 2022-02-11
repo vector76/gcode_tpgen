@@ -99,10 +99,12 @@ As an additional option to see the possible influence on processing speed, a mor
 </p>
 </div>
 <div id="accel_desc">
-<h1>Acceleration Not Yet Implemented</h1>
+<h1>Acceleration Test</h1>
 <p>Generates gcode to test acceleration.  Assumes junction deviation is being used, in 
 which case "jerk" (instantaneous speed change for low enough speed difference) should not be in effect.
-</p><p>
+</p>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/RIHGWwliisE" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<p>
 The generated g-code will issue M501 at the beginning and at the end, to minimize the chance that modified
 acceleration settings will leave the machine in a bad state.
 </p><p>
@@ -124,23 +126,9 @@ direction and gradually slow to a stop
 <li>The drawing feedrate is used to draw the two segments
 <li>The sideways step between acceleration tests is always 2mm
 <li>The rapid feedrate is the speed at which the acceleration is tested
-<li>The X (or Y) extent is the length of the ramp
-
+<li>The X (or Y) extent is the length of the speed ramp
+<li>A short diagonal move is performed before each segment is drawn, so the line position would be consistent even if there were backlash.
 </ul>
-<pre>
-
-V1 Marlin Defaults (as of version 421):
-#define S_CURVE_ACCELERATION
-
-// mm/s
-#define DEFAULT_MAX_FEEDRATE          { 50, 50, 15, 25 }
-
-// mm/s^2
-#define DEFAULT_MAX_ACCELERATION      { 180, 180, 80, 180 }
-#define DEFAULT_ACCELERATION          180    // X, Y, Z and E acceleration for printing moves
-#define DEFAULT_RETRACT_ACCELERATION  3000    // E acceleration for retracts
-#define DEFAULT_TRAVEL_ACCELERATION   180    // X, Y, Z acceleration for travel (non printing) moves
-</pre>
 </p>
 </div>
 <div id="text_desc">
