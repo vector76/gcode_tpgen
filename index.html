@@ -48,6 +48,7 @@
 <tr><td>Dense segments min:</td><td><input type="text" name="dense_minseg" value="0.02", size="6"> mm</td></tr>
 <tr><td>Dense segments max:</td><td><input type="text" name="dense_maxseg" value="0.5", size="6"> mm</td></tr>
 <tr><td>Save bandwidth:</td><td><input type="checkbox" name="dense_efficient"></td></tr>
+<tr><td>Draw diagonally:</td><td><input type="checkbox" name="dense_diagonal"></td></tr>
 <tr><td name="stepover_txt">Surfacing stepover:</td><td><input type="text" name="stepover" value="12", size="6"> mm</td></tr>
 <tr><td>Cutting direction:</td><td><input type="text" name="direction" value="E", size="6"> (N, S, E, or W)</td></tr>
 <tr><td>Orientation:</td><td><input type="text" name="orientation" value="X", size="6"> (X or Y)</td></tr>
@@ -97,6 +98,7 @@ The g-code also contains comments showing the subdivision lengths before each li
 </p><p>
 As an additional option to see the possible influence on processing speed, a more efficient mode can be enabled by checking "Save bandwidth".  This generates the same toolpath but does not repeat the Z, Y, or F values any more than necessary.
 </p>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/FYIWPjkD5JY" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 </div>
 <div id="accel_desc">
 <h1>Acceleration Test</h1>
@@ -207,12 +209,14 @@ Questions, suggestions, feature requests are welcome.
       $("input[name=dense_minseg]").parent().parent().show();
       $("input[name=dense_maxseg]").parent().parent().show();
       $("input[name=dense_efficient]").parent().parent().show();
+      $("input[name=dense_diagonal]").parent().parent().show();
       $("div[id=dense_seg_desc]").show();
     }
     else {
       $("input[name=dense_minseg]").parent().parent().hide();
       $("input[name=dense_maxseg]").parent().parent().hide();
       $("input[name=dense_efficient]").parent().parent().hide();
+      $("input[name=dense_diagonal]").parent().parent().hide();
       $("div[id=dense_seg_desc]").hide();
     }
     
@@ -307,28 +311,50 @@ Questions, suggestions, feature requests are welcome.
     }
   }
 
-  function dense_x_segments(seglength, xstart, xend, y, zup, zdn, rapid, vertical, drawspeed, efficient) {
+  function dense_x_segments(seglength, xstart, xend, y, zup, zdn, rapid, vertical, drawspeed, efficient, diag) {
     var nsegs = Math.floor(Math.abs(xend-xstart)/seglength);
     var xdir = (xend > xstart) ? 1 : -1;
     output_append("G1 X" + xstart + " Y" + y + zup + " F" + rapid);
     output_append("G1" + zdn + " F" + vertical);
-    for (var i=1; i < nsegs; i++) {
-      var x = xstart + i * seglength * xdir;
-      if (efficient) {
-        // bare minimum to save bandwidth
-        if (i == 1) {
-          // convert to string, keeping four decimals
-          x = x.toFixed(4);
-          output_append("G1 X" + x + " F" + drawspeed);
+    if (diag) {
+      var dlength = seglength * Math.sqrt(0.5);
+      for (var i=1; i < nsegs; i++) {
+        var x = xstart + i * dlength * xdir;
+        var yy = y + i * dlength;
+        x = x.toFixed(4);
+        yy = yy.toFixed(4);
+        if (efficient) {
+          if (i == 1) {
+            output_append("G1 X" + x + " Y" + yy + " F" + drawspeed);  // no need to repeat Z position
+          }
+          else {
+            output_append("G1 X" + x + " Y" + yy);  // no need to repeat Z position or feedrate
+          }
+        }
+        else {
+          output_append("G1 X" + x + " Y" + yy + zdn + " F" + drawspeed);
+        }
+      }
+    }
+    else {
+      for (var i=1; i < nsegs; i++) {
+        var x = xstart + i * seglength * xdir;
+        if (efficient) {
+          // bare minimum to save bandwidth
+          if (i == 1) {
+            // convert to string, keeping four decimals
+            x = x.toFixed(4);
+            output_append("G1 X" + x + " F" + drawspeed);
+          }
+          else {
+            x = x.toFixed(4);
+            output_append("G1 X" + x);
+          }
         }
         else {
           x = x.toFixed(4);
-          output_append("G1 X" + x);
+          output_append("G1 X" + x + " Y" + y + zdn + " F" + drawspeed);
         }
-      }
-      else {
-        x = x.toFixed(4);
-        output_append("G1 X" + x + " Y" + y + zdn + " F" + drawspeed);
       }
     }
     output_append("G1" + zup + " F" + vertical);
@@ -749,6 +775,7 @@ Questions, suggestions, feature requests are welcome.
     var dense_minseg = parseFloat($("input[name=dense_minseg]").val());
     var dense_maxseg = parseFloat($("input[name=dense_maxseg]").val());
     var dense_efficient = $("input[name=dense_efficient]").prop('checked');
+    var dense_diagonal = $("input[name=dense_diagonal]").prop('checked');
     var mode = $("input[name=mode]:checked").val();
     var textlines = $("textarea[name=text_input]").val().split('\n');
     var stepover = parseFloat($("input[name=stepover]").val());
@@ -799,6 +826,7 @@ Questions, suggestions, feature requests are welcome.
       output_append("; dense_minseg: " + dense_minseg);
       output_append("; dense_maxseg: " + dense_maxseg);
       output_append("; dense_efficient: " + dense_efficient);
+      output_append("; dense_diagonal: " + dense_diagonal);
     }
     
     if (mode == "text") {
@@ -893,7 +921,7 @@ Questions, suggestions, feature requests are welcome.
       for (var y=0; y < ylines; y++) {
         seglength = dense_minseg + (dense_maxseg-dense_minseg)*y/(ylines-1);
         output_append("; drawing segments of length " + seglength);
-        dense_x_segments(seglength, 0, xsize, y, zup, zdn, rapid, vertical, drawspeed, dense_efficient);
+        dense_x_segments(seglength, 0, xsize, y, zup, zdn, rapid, vertical, drawspeed, dense_efficient, dense_diagonal);
       }
     }
 
