@@ -156,7 +156,18 @@ If the router is not quite perpendicular, then one side will cut slightly deeper
 </div>
 <div id="hog_desc">
 <h1>Hog-Out Optimization</h1>
-<p>For testing behavior at a given stepover, feedrate, and depth
+<p>This test is intended to answer the following question: for a given material and a given combination of tool, stepover,
+and depth, how does feedrate affect accuracy (deflection), and how high a feedrate is possible?  Using arbitrary conservative
+numbers without experimenting might leave a lot of performance on the table.  Knowing the behavior at high speeds allows a
+more informed choice of speeds.
+</p><p>
+The test works by first preparing a "top-hat" shape at low speed, first with a slotting cut and then a finishing pass so the
+top-hat profile is fairly precise.  Then at high speed, the tool cuts through (see video).  If the tool deflects due to the
+cutting load, it can be measured.  Higher speeds are expected to produce higher loads and higher deflection.  The sound and
+overall quality can also be evaluated subjectively.
+</p><p>
+This allows determining the highest viable speed by pushing higher and higher feedrates experimentally without
+generating a lot of wasted parts.
 </p><p>
 Recommended starting values for wood with 1/8" bit: <br>
 Z height of cut: -6 mm<br>
@@ -167,6 +178,7 @@ Cutting Feedrate: 600 mm/min<br>
 Slotting Feedrate (slow): 300 mm/min<br>
 Stepover: 1.5 mm
 </p>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/_ABgu-GGs90" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 </div>
 </td></tr></table>
 <div>
