@@ -375,7 +375,7 @@ Questions, suggestions, feature requests are welcome.
         }
       }
     }
-    output_append("G1" + zup + " F" + vertical);
+    output_append("G0" + zup + " F" + vertical);
   }
   
   function x_zig(xstart, xend, ymid, zup, zdn, rapid, vertical, drawspeed) {
@@ -391,7 +391,7 @@ Questions, suggestions, feature requests are welcome.
       output_append("G0 X" + x + " Y" + ystart + zup + " F" + rapid);
       output_append("G1 X" + x + " Y" + ystart + zdn + " F" + vertical);
       output_append("G1 X" + x + " Y" + yend + zdn + " F" + drawspeed);
-      output_append("G1 X" + x + " Y" + yend + zup + " F" + vertical);
+      output_append("G0 X" + x + " Y" + yend + zup + " F" + vertical);
     }
   }
   
@@ -408,7 +408,7 @@ Questions, suggestions, feature requests are welcome.
       output_append("G0 X" + x + " Y" + ystart + zup + " F" + rapid);
       output_append("G1 X" + x + " Y" + ystart + zdn + " F" + vertical);
       output_append("G1 X" + x + " Y" + yend + zdn + " F" + drawspeed);
-      output_append("G1 X" + x + " Y" + yend + zup + " F" + vertical);
+      output_append("G0 X" + x + " Y" + yend + zup + " F" + vertical);
     }
   }
   
@@ -425,7 +425,7 @@ Questions, suggestions, feature requests are welcome.
       output_append("G0 X" + xstart + " Y" + y + zup + " F" + rapid);
       output_append("G1 X" + xstart + " Y" + y + zdn + " F" + vertical);
       output_append("G1 X" + xend + " Y" + y + zdn + " F" + drawspeed);
-      output_append("G1 X" + xend + " Y" + y + zup + " F" + vertical);
+      output_append("G0 X" + xend + " Y" + y + zup + " F" + vertical);
     }
   }
   
@@ -442,7 +442,7 @@ Questions, suggestions, feature requests are welcome.
       output_append("G0 X" + xstart + " Y" + y + zup + " F" + rapid);
       output_append("G1 X" + xstart + " Y" + y + zdn + " F" + vertical);
       output_append("G1 X" + xend + " Y" + y + zdn + " F" + drawspeed);
-      output_append("G1 X" + xend + " Y" + y + zup + " F" + vertical);
+      output_append("G0 X" + xend + " Y" + y + zup + " F" + vertical);
     }
   }
   
@@ -468,7 +468,7 @@ Questions, suggestions, feature requests are welcome.
   
   function xy_stairs(xstart, ystart, seg_length, numsegs, zup, zdn, rapid, vertical, radius, speedfast, speedslow) {
     // raise pen
-    output_append("G1" + zup + " F" + vertical);
+    output_append("G0" + zup + " F" + vertical);
     // move to xstart, ystart
     output_append("G0 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
     // lower pen
@@ -521,7 +521,7 @@ Questions, suggestions, feature requests are welcome.
       var xstart = -2*stepover;
       var ystart = 4*stepover;
       var slow = Math.ceil(drawspeed/4);
-      output_append("G1 " + zup + " F" + vertical);  // raise to zup
+      output_append("G0 " + zup + " F" + vertical);  // raise to zup
       output_append("G0 X" + xstart + " Y" + ystart + " F" + rapid);  // move to starting location where plunge occurs
       output_append("G1 " + zdn + " F" + vertical);  // plunge to zdn
       output_append("G1 X0 Y" + ystart + " F" + slow);  // engage laterally but slowly (slow movement exclusive to this move)
@@ -541,7 +541,7 @@ Questions, suggestions, feature requests are welcome.
       gen_subdivided_line(xsize-stepover, stepover, stepover, stepover, drawspeed);
       gen_subdivided_line(stepover, stepover, 0, 0, drawspeed);
       
-      output_append("G1 " + zup + " F" + vertical);  // raise to zup
+      output_append("G0 " + zup + " F" + vertical);  // raise to zup
   }
   
   function surfacing(xmin, ymin, xmax, ymax, stepover, direction, zup, zdn, rapid, vertical, drawspeed) {
@@ -590,19 +590,19 @@ Questions, suggestions, feature requests are welcome.
     for (var row=0; row < nrows; row++) {
       var rowcoord = rowstart + row*rowstep;
       if (horiz) {
-        output_append("G1 " + zup + " F" + vertical);  // raise to zup
+        output_append("G0 " + zup + " F" + vertical);  // raise to zup
         output_append("G0 X" + strokestart + " Y" + rowcoord.toFixed(3) + " F" + rapid);  // rapid move to rowcoord, strokestart
         output_append("G1 " + zdn + " F" + vertical);  // plunge to zdn
         gen_subdivided_line(strokestart, rowcoord, strokeend, rowcoord, drawspeed);
       }
       else {
-        output_append("G1 " + zup + " F" + vertical);  // raise to zup
+        output_append("G0 " + zup + " F" + vertical);  // raise to zup
         output_append("G0 X" + rowcoord.toFixed(3) + " Y" + strokestart + " F" + rapid);  // rapid move to rowcoord, strokestart
         output_append("G1 " + zdn + " F" + vertical);  // plunge to zdn
         gen_subdivided_line(rowcoord, strokestart, rowcoord, strokeend, drawspeed);
       }
     }
-    output_append("G1 " + zup + " F" + vertical);  // raise to zup
+    output_append("G0 " + zup + " F" + vertical);  // raise to zup
     output_append("G0 X0 Y0 F" + rapid);  // rapid move to 0,0
   }
   
@@ -672,7 +672,7 @@ Questions, suggestions, feature requests are welcome.
     var fspeed = " F" + Math.round(drawspeed);
     
     // move to x1, y1, and plunge to z depth
-    output_append("G1" + zup + " F" + vertical);
+    output_append("G0" + zup + " F" + vertical);
     output_append("G0 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
     output_append("G1" + zdn + " F" + vertical);
     
@@ -684,13 +684,13 @@ Questions, suggestions, feature requests are welcome.
     output_append("G1 X" + xend.toFixed(3) + " Y" + yend.toFixed(3) + fspeed);
 
     // Then raise up
-    output_append("G1" + zup + " F" + vertical);
+    output_append("G0" + zup + " F" + vertical);
   }
   
   function full_speed_swipe(xstart, ystart, xend, yend, zup, zdn, rapid, vertical, drawspeed) {
     output_append("; full speed cut");
     // move to x1, y1, and plunge to z depth
-    output_append("G1" + zup + " F" + vertical);
+    output_append("G0" + zup + " F" + vertical);
     output_append("G0 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
     output_append("G1" + zdn + " F" + vertical);
     
@@ -698,7 +698,7 @@ Questions, suggestions, feature requests are welcome.
     output_append("G1 X" + xend.toFixed(3) + " Y" + yend.toFixed(3) + " F" + Math.round(drawspeed));
     
     // Then raise up
-    output_append("G1" + zup + " F" + vertical);
+    output_append("G0" + zup + " F" + vertical);
   }
   
   function hog_test_x(cornerx, cornery, stepover, zup, zdn, rapid, vertical, drawspeed_slow, drawspeed) {
@@ -740,7 +740,7 @@ Questions, suggestions, feature requests are welcome.
     var ypre = ystart+5;
     
     // raise pen
-    output_append("G1" + zup + " F" + vertical);
+    output_append("G0" + zup + " F" + vertical);
     // move to xpre, ypre
     output_append("G0 X" + xpre.toFixed(3) + " Y" + ypre.toFixed(3) + " F" + rapid);
     // move to xstart, ystart
@@ -750,7 +750,7 @@ Questions, suggestions, feature requests are welcome.
     // move to xend, yend
     output_append("G1 X" + xend.toFixed(3) + " Y" + yend.toFixed(3) + " F" + drawspeed);
     // raise pen
-    output_append("G1" + zup + " F" + vertical);
+    output_append("G0" + zup + " F" + vertical);
   }
   
   function accel_execute(mode, i, extent, rapid) {
@@ -786,7 +786,7 @@ Questions, suggestions, feature requests are welcome.
     var ypre = ystart+5;
     
     // raise pen
-    output_append("G1" + zup + " F" + vertical);
+    output_append("G0" + zup + " F" + vertical);
     // move to xpre, ypre
     output_append("G0 X" + xpre.toFixed(3) + " Y" + ypre.toFixed(3) + " F" + rapid);
     // move to xstart, ystart
@@ -796,7 +796,7 @@ Questions, suggestions, feature requests are welcome.
     // move to xend, yend
     output_append("G1 X" + xend.toFixed(3) + " Y" + yend.toFixed(3) + " F" + drawspeed);
     // raise pen
-    output_append("G1" + zup + " F" + vertical);
+    output_append("G0" + zup + " F" + vertical);
   }
   
   function generate() {
@@ -929,7 +929,7 @@ Questions, suggestions, feature requests are welcome.
     }
     
     if (mode == "ztest_corners") {
-      output_append("G1" + zup + " F" + vertical);
+      output_append("G0" + zup + " F" + vertical);
       z_test(zxsize/2, zxsize/2, zxsize, zup, zdn, rapid, drawspeed);
       z_test(xsize-zxsize/2, zxsize/2, zxsize, zup, zdn, rapid, drawspeed);
       z_test(xsize-zxsize/2, ysize-zxsize/2, zxsize, zup, zdn, rapid, drawspeed);
@@ -937,7 +937,7 @@ Questions, suggestions, feature requests are welcome.
     }
 
     if (mode == "ztest_grid") {
-      output_append("G1" + zup + " F" + vertical);
+      output_append("G0" + zup + " F" + vertical);
       // minimum 1 mm space between X marks: N*zxsize+(N-1)*space <= xsize (or ysize)
       var space = 1;
       var num_x = Math.floor((xsize+space)/(zxsize+space));
@@ -964,7 +964,7 @@ Questions, suggestions, feature requests are welcome.
     }
     
     if (mode == "dense_segments") {
-      output_append("G1" + zup + " F" + vertical);
+      output_append("G0" + zup + " F" + vertical);
       var ylines = Math.floor(ysize) + 1;
       for (var y=0; y < ylines; y++) {
         seglength = dense_minseg + (dense_maxseg-dense_minseg)*y/(ylines-1);
@@ -1007,7 +1007,7 @@ Questions, suggestions, feature requests are welcome.
         accel_post(mode, i, zup, zdn, rapid, vertical, drawspeed);  // draw second 10mm segment after running acceleration test
       }
       
-      output_append("G1" + zup + " F" + vertical);
+      output_append("G0" + zup + " F" + vertical);
       output_append("G0 X0 Y0 F" + rapid);
       output_append("M501");
     }
