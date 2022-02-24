@@ -51,6 +51,7 @@
 <tr><td>Draw diagonally:</td><td><input type="checkbox" name="dense_diagonal"></td></tr>
 <tr><td name="stepover_txt">Surfacing stepover:</td><td><input type="text" name="stepover" value="12", size="6"> mm</td></tr>
 <tr><td>Cutting direction:</td><td><input type="text" name="direction" value="E", size="6"> (N, S, E, or W)</td></tr>
+<tr><td>Perimeter:</td><td><input type="checkbox" name="perimeter"></td></tr>
 <tr><td>Orientation:</td><td><input type="text" name="orientation" value="X", size="6"> (X or Y)</td></tr>
 <tr><td>Pattern count:</td><td><input type="text" name="hog_count" value="1", size="6"></td></tr>
 <tr><td>Pattern offset:</td><td><input type="text" name="hog_offset" value="10", size="6"> mm</td></tr>
@@ -153,6 +154,9 @@ If the router is not quite perpendicular, then one side will cut slightly deeper
 </p><p><span style="color:red">Note the recommended feedrates for surfacing are quite a bit slower than for drawing and must be chosen manually.  The defaults are unlikely to work well!</span>
 </p><p>Note that the X extent and Y extent are the extent of travel of the center of the cutting bit.  The pocket size will be larger by the diameter of the cutting bit.
 </p>
+<p>The 'perimeter' option is for endgrain cutting boards or other situations where some cuts can cause tearout.  Before surfacing, the tool traces the perimeter clockwise (twice) to ensure the perimeter is cut with the tool cutting into the workpiece instead of cutting out ofthe workpiece.  Here is an example of using the perimeter option to surface some endgrain veneer, which is prone to chip-out if the perimeter option is not used:
+</p>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/WHqcnfb_Bm0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 </div>
 <div id="hog_desc">
 <h1>Hog-Out Optimization</h1>
@@ -267,10 +271,12 @@ Questions, suggestions, feature requests are welcome.
     
     if (mode == "surfacing") {
       $("input[name=direction]").parent().parent().show();
+      $("input[name=perimeter]").parent().parent().show();
       $("div[id=surfacing_desc]").show();
     }
     else {
       $("input[name=direction]").parent().parent().hide();
+      $("input[name=perimeter]").parent().parent().hide();
       $("div[id=surfacing_desc]").hide();
     }
     
@@ -497,39 +503,80 @@ Questions, suggestions, feature requests are welcome.
     }
   }
   
-  function surfacing(xsize, ysize, stepover, direction, zup, zdn, rapid, vertical, drawspeed) {
+  function gen_subdivided_line(x0, y0, x1, y1, drawspeed) {
+    var fifth_second = drawspeed/300;  // how far do we go in 1/5th of a second
+    var dist = Math.sqrt((x1-x0)*(x1-x0) + (y1-y0)*(y1-y0));
+    var stroke_segs = Math.ceil(dist/fifth_second)+1;  // how many segments to subdivide a stroke to get about 1/5 second per segment
+    var dx = (x1-x0)/stroke_segs;
+    var dy = (y1-y0)/stroke_segs;
+    for (var i=1; i <= stroke_segs; i++) {
+      var x = x0 + i*dx;
+      var y = y0 + i*dy;
+      output_append("G1 X" + x.toFixed(3) + " Y" + y.toFixed(3) + " F" + drawspeed);
+    }
+    
+  }
+  
+  function surfacing_perim(xsize, ysize, stepover, direction, zup, zdn, rapid, vertical, drawspeed) {
+      var xstart = -2*stepover;
+      var ystart = 4*stepover;
+      var slow = Math.ceil(drawspeed/4);
+      output_append("G1 " + zup + " F" + vertical);  // raise to zup
+      output_append("G1 X" + xstart + " Y" + ystart + " F" + rapid);  // move to starting location where plunge occurs
+      output_append("G1 " + zdn + " F" + vertical);  // plunge to zdn
+      output_append("G1 X0 Y" + ystart + " F" + slow);  // engage laterally but slowly (slow movement exclusive to this move)
+      gen_subdivided_line(0, ystart, 0, ysize, drawspeed);  // run north along west edge
+      gen_subdivided_line(0, ysize, xsize, ysize, drawspeed);  // run east along north edge
+      gen_subdivided_line(xsize, ysize, xsize, 0, drawspeed);  // run south along east edge
+      gen_subdivided_line(xsize, 0, 0, 0, drawspeed);  // run west along south edge (back to origin)
+      gen_subdivided_line(0, 0, 0, ystart, drawspeed);  // north back to ystart
+      
+      // a dovetail bit that traces the perimeter still won't be able to plunge at those same locations that were just cut, but one stepover should do.
+      // cut entire perimeter again, one stepover inward
+      gen_subdivided_line(0, ystart, 0, 0, drawspeed);
+      gen_subdivided_line(0, 0, stepover, 0, drawspeed);
+      gen_subdivided_line(stepover, 0, stepover, ysize-stepover, drawspeed);
+      gen_subdivided_line(stepover, ysize-stepover, xsize-stepover, ysize-stepover, drawspeed);
+      gen_subdivided_line(xsize-stepover, ysize-stepover, xsize-stepover, stepover, drawspeed);
+      gen_subdivided_line(xsize-stepover, stepover, stepover, stepover, drawspeed);
+      gen_subdivided_line(stepover, stepover, 0, 0, drawspeed);
+      
+      output_append("G1 " + zup + " F" + vertical);  // raise to zup
+  }
+  
+  function surfacing(xmin, ymin, xmax, ymax, stepover, direction, zup, zdn, rapid, vertical, drawspeed) {
     var strokestart, strokeend, rowstart, rowend, horiz;
     // orient so that we're always climb milling.  This should reduce the tilting of the router instead of increasing it.
     if (direction == "E"){
       // left to right, top to bottom
-      strokestart = 0;
-      strokeend = xsize;
-      rowstart = ysize;
-      rowend = 0;
+      strokestart = xmin;
+      strokeend = xmax;
+      rowstart = ymax;
+      rowend = ymin;
       horiz = true;
     }
     else if (direction == "W") {
       // right to left, bottom to top
-      strokestart = xsize;
-      strokeend = 0;
-      rowstart = 0;
-      rowend = ysize;
+      strokestart = xmax;
+      strokeend = xmin;
+      rowstart = ymin;
+      rowend = ymax;
       horiz = true;
     }
     else if (direction == "N") {
       // bottom to top, left to right
-      strokestart = 0;
-      strokeend = ysize;
-      rowstart = 0;
-      rowend = xsize;
+      strokestart = ymin;
+      strokeend = ymax;
+      rowstart = xmin;
+      rowend = xmax;
       horiz = false;
     }
     else if (direction == "S") {
       // top to bottom, right to left
-      strokestart = ysize;
-      strokeend = 0;
-      rowstart = xsize;
-      rowend = 0;
+      strokestart = ymax;
+      strokeend = ymin;
+      rowstart = xmax;
+      rowend = xmin;
       horiz = false;
     }
     else {
@@ -540,32 +587,19 @@ Questions, suggestions, feature requests are welcome.
     // stepover is a guideline but we adjust possibly smaller so each row is equally spaced
     var rowstep = (rowend-rowstart)/(nrows-1);
     
-    // at speedslow mm per minute, speedslow/60 is mm per second and speedslow/300 is the distance 
-    // that would produce five movements per second
-    var fifth_second = drawspeed/300;
-    var stroke_segs = Math.ceil(Math.abs(strokeend-strokestart)/fifth_second)+1;  // how many segments to subdivide a stroke
-    var stroke_step = (strokeend-strokestart)/(stroke_segs-1);
     for (var row=0; row < nrows; row++) {
       var rowcoord = rowstart + row*rowstep;
-      var t_rowcoord = rowcoord.toFixed(3);
-      output_append("G1 " + zup + " F" + vertical);  // raise to zup
       if (horiz) {
-        output_append("G1 X" + strokestart + " Y" + t_rowcoord + " F" + rapid);  // rapid move to rowcoord, strokestart
+        output_append("G1 " + zup + " F" + vertical);  // raise to zup
+        output_append("G1 X" + strokestart + " Y" + rowcoord.toFixed(3) + " F" + rapid);  // rapid move to rowcoord, strokestart
+        output_append("G1 " + zdn + " F" + vertical);  // plunge to zdn
+        gen_subdivided_line(strokestart, rowcoord, strokeend, rowcoord, drawspeed);
       }
       else {
-        output_append("G1 X" + t_rowcoord + " Y" + strokestart + " F" + rapid);  // rapid move to rowcoord, strokestart
-      }
-      output_append("G1 " + zdn + " F" + vertical);  // plunge to zdn
-      // start stroke counter at 1 because we're already at zero
-      for (var strokei=1; strokei < stroke_segs; strokei++) {
-        var strokecoord = strokestart + strokei*stroke_step;
-        var t_strokecoord = strokecoord.toFixed(3);
-        if (horiz) {
-          output_append("G1 X" + t_strokecoord + " Y" + t_rowcoord + " F" + drawspeed);  // move to rowcoord, strokecoord
-        }
-        else {
-          output_append("G1 X" + t_rowcoord + " Y" + t_strokecoord + " F" + drawspeed);  // move to rowcoord, strokecoord
-        }
+        output_append("G1 " + zup + " F" + vertical);  // raise to zup
+        output_append("G1 X" + rowcoord.toFixed(3) + " Y" + strokestart + " F" + rapid);  // rapid move to rowcoord, strokestart
+        output_append("G1 " + zdn + " F" + vertical);  // plunge to zdn
+        gen_subdivided_line(rowcoord, strokestart, rowcoord, strokeend, drawspeed);
       }
     }
     output_append("G1 " + zup + " F" + vertical);  // raise to zup
@@ -792,6 +826,7 @@ Questions, suggestions, feature requests are welcome.
     var textlines = $("textarea[name=text_input]").val().split('\n');
     var stepover = parseFloat($("input[name=stepover]").val());
     var direction = $("input[name=direction]").val();
+    var perimeter = $("input[name=perimeter]").prop('checked');
     var orientation = $("input[name=orientation]").val();
     var hog_count = parseFloat($("input[name=hog_count]").val());
     var hog_offset = parseFloat($("input[name=hog_offset]").val());
@@ -860,6 +895,7 @@ Questions, suggestions, feature requests are welcome.
     if (mode == "surfacing") {
       output_append("; stepover: " + stepover + " mm");
       output_append("; direction: " + direction);
+      output_append("; perimeter: " + perimeter);
     }
     
     if (mode == "hog") {
@@ -991,7 +1027,19 @@ Questions, suggestions, feature requests are welcome.
         alert("direction must be N, S, E, or W");
         return;
       }
-      surfacing(xsize, ysize, stepover, direction, zup, zdn, rapid, vertical, drawspeed);
+      if (perimeter) {
+        surfacing_perim(xsize, ysize, stepover, direction, zup, zdn, rapid, vertical, drawspeed);
+        // surfacing a slightly smaller box saves four strokes that have already been completed
+        if (direction == "E" || direction == "W") {
+          surfacing(0, 2*stepover, xsize, ysize-2*stepover, stepover, direction, zup, zdn, rapid, vertical, drawspeed);
+        }
+        else {
+          surfacing(2*stepover, 0, xsize-2*stepover, ysize, stepover, direction, zup, zdn, rapid, vertical, drawspeed);
+        }
+      }
+      else {
+        surfacing(0, 0, xsize, ysize, stepover, direction, zup, zdn, rapid, vertical, drawspeed);
+      }
     }
     
     if (mode == "hog") {
