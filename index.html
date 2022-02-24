@@ -332,7 +332,7 @@ Questions, suggestions, feature requests are welcome.
   function dense_x_segments(seglength, xstart, xend, y, zup, zdn, rapid, vertical, drawspeed, efficient, diag) {
     var nsegs = Math.floor(Math.abs(xend-xstart)/seglength);
     var xdir = (xend > xstart) ? 1 : -1;
-    output_append("G1 X" + xstart + " Y" + y + zup + " F" + rapid);
+    output_append("G0 X" + xstart + " Y" + y + zup + " F" + rapid);
     output_append("G1" + zdn + " F" + vertical);
     if (diag) {
       var dlength = seglength * Math.sqrt(0.5);
@@ -388,7 +388,7 @@ Questions, suggestions, feature requests are welcome.
       if (x % 10 == 0) {
         ystart = ystart - 2;
       }
-      output_append("G1 X" + x + " Y" + ystart + zup + " F" + rapid);
+      output_append("G0 X" + x + " Y" + ystart + zup + " F" + rapid);
       output_append("G1 X" + x + " Y" + ystart + zdn + " F" + vertical);
       output_append("G1 X" + x + " Y" + yend + zdn + " F" + drawspeed);
       output_append("G1 X" + x + " Y" + yend + zup + " F" + vertical);
@@ -405,7 +405,7 @@ Questions, suggestions, feature requests are welcome.
       if (x % 10 == 0) {
         yend = yend + 2;   // 10 mm goes from ymid+0.5 to ymid+10
       }
-      output_append("G1 X" + x + " Y" + ystart + zup + " F" + rapid);
+      output_append("G0 X" + x + " Y" + ystart + zup + " F" + rapid);
       output_append("G1 X" + x + " Y" + ystart + zdn + " F" + vertical);
       output_append("G1 X" + x + " Y" + yend + zdn + " F" + drawspeed);
       output_append("G1 X" + x + " Y" + yend + zup + " F" + vertical);
@@ -422,7 +422,7 @@ Questions, suggestions, feature requests are welcome.
       if (y % 10 == 0) {
         xstart = xstart - 2;
       }
-      output_append("G1 X" + xstart + " Y" + y + zup + " F" + rapid);
+      output_append("G0 X" + xstart + " Y" + y + zup + " F" + rapid);
       output_append("G1 X" + xstart + " Y" + y + zdn + " F" + vertical);
       output_append("G1 X" + xend + " Y" + y + zdn + " F" + drawspeed);
       output_append("G1 X" + xend + " Y" + y + zup + " F" + vertical);
@@ -439,7 +439,7 @@ Questions, suggestions, feature requests are welcome.
       if (y % 10 == 0) {
         xend = xend + 2;
       }
-      output_append("G1 X" + xstart + " Y" + y + zup + " F" + rapid);
+      output_append("G0 X" + xstart + " Y" + y + zup + " F" + rapid);
       output_append("G1 X" + xstart + " Y" + y + zdn + " F" + vertical);
       output_append("G1 X" + xend + " Y" + y + zdn + " F" + drawspeed);
       output_append("G1 X" + xend + " Y" + y + zup + " F" + vertical);
@@ -458,10 +458,10 @@ Questions, suggestions, feature requests are welcome.
     y1 = y1.toFixed(3);
     x = x.toFixed(3);
     y = y.toFixed(3);
-    output_append("G1 X" + x0 + " Y" + y0 + zup + " F" + rapid);
+    output_append("G0 X" + x0 + " Y" + y0 + zup + " F" + rapid);
     output_append("G1 X" + x + " Y" + y + zdn + " F" + drawspeed);
     output_append("G1 X" + x1 + " Y" + y1 + zup + " F" + drawspeed);
-    output_append("G1 X" + x0 + " Y" + y1 + zup + " F" + rapid);
+    output_append("G0 X" + x0 + " Y" + y1 + zup + " F" + rapid);
     output_append("G1 X" + x + " Y" + y + zdn + " F" + drawspeed);
     output_append("G1 X" + x1 + " Y" + y0 + zup + " F" + drawspeed);
   }
@@ -470,7 +470,7 @@ Questions, suggestions, feature requests are welcome.
     // raise pen
     output_append("G1" + zup + " F" + vertical);
     // move to xstart, ystart
-    output_append("G1 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
+    output_append("G0 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
     // lower pen
     output_append("G1" + zdn + " F" + vertical);
     
@@ -522,7 +522,7 @@ Questions, suggestions, feature requests are welcome.
       var ystart = 4*stepover;
       var slow = Math.ceil(drawspeed/4);
       output_append("G1 " + zup + " F" + vertical);  // raise to zup
-      output_append("G1 X" + xstart + " Y" + ystart + " F" + rapid);  // move to starting location where plunge occurs
+      output_append("G0 X" + xstart + " Y" + ystart + " F" + rapid);  // move to starting location where plunge occurs
       output_append("G1 " + zdn + " F" + vertical);  // plunge to zdn
       output_append("G1 X0 Y" + ystart + " F" + slow);  // engage laterally but slowly (slow movement exclusive to this move)
       gen_subdivided_line(0, ystart, 0, ysize, drawspeed);  // run north along west edge
@@ -591,19 +591,19 @@ Questions, suggestions, feature requests are welcome.
       var rowcoord = rowstart + row*rowstep;
       if (horiz) {
         output_append("G1 " + zup + " F" + vertical);  // raise to zup
-        output_append("G1 X" + strokestart + " Y" + rowcoord.toFixed(3) + " F" + rapid);  // rapid move to rowcoord, strokestart
+        output_append("G0 X" + strokestart + " Y" + rowcoord.toFixed(3) + " F" + rapid);  // rapid move to rowcoord, strokestart
         output_append("G1 " + zdn + " F" + vertical);  // plunge to zdn
         gen_subdivided_line(strokestart, rowcoord, strokeend, rowcoord, drawspeed);
       }
       else {
         output_append("G1 " + zup + " F" + vertical);  // raise to zup
-        output_append("G1 X" + rowcoord.toFixed(3) + " Y" + strokestart + " F" + rapid);  // rapid move to rowcoord, strokestart
+        output_append("G0 X" + rowcoord.toFixed(3) + " Y" + strokestart + " F" + rapid);  // rapid move to rowcoord, strokestart
         output_append("G1 " + zdn + " F" + vertical);  // plunge to zdn
         gen_subdivided_line(rowcoord, strokestart, rowcoord, strokeend, drawspeed);
       }
     }
     output_append("G1 " + zup + " F" + vertical);  // raise to zup
-    output_append("G1 X0 Y0 F" + rapid);  // rapid move to 0,0
+    output_append("G0 X0 Y0 F" + rapid);  // rapid move to 0,0
   }
   
   function top_hat_dbl(xstart, ystart, xend, yend, height, brim, zup, zdn, rapid, vertical, drawspeed, offs) {
@@ -673,7 +673,7 @@ Questions, suggestions, feature requests are welcome.
     
     // move to x1, y1, and plunge to z depth
     output_append("G1" + zup + " F" + vertical);
-    output_append("G1 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
+    output_append("G0 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
     output_append("G1" + zdn + " F" + vertical);
     
     // Travel to A, B, C, D, and end
@@ -691,7 +691,7 @@ Questions, suggestions, feature requests are welcome.
     output_append("; full speed cut");
     // move to x1, y1, and plunge to z depth
     output_append("G1" + zup + " F" + vertical);
-    output_append("G1 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
+    output_append("G0 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
     output_append("G1" + zdn + " F" + vertical);
     
     // plow through from start to end
@@ -742,9 +742,9 @@ Questions, suggestions, feature requests are welcome.
     // raise pen
     output_append("G1" + zup + " F" + vertical);
     // move to xpre, ypre
-    output_append("G1 X" + xpre.toFixed(3) + " Y" + ypre.toFixed(3) + " F" + rapid);
+    output_append("G0 X" + xpre.toFixed(3) + " Y" + ypre.toFixed(3) + " F" + rapid);
     // move to xstart, ystart
-    output_append("G1 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
+    output_append("G0 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
     // lower pen
     output_append("G1" + zdn + " F" + vertical);
     // move to xend, yend
@@ -788,9 +788,9 @@ Questions, suggestions, feature requests are welcome.
     // raise pen
     output_append("G1" + zup + " F" + vertical);
     // move to xpre, ypre
-    output_append("G1 X" + xpre.toFixed(3) + " Y" + ypre.toFixed(3) + " F" + rapid);
+    output_append("G0 X" + xpre.toFixed(3) + " Y" + ypre.toFixed(3) + " F" + rapid);
     // move to xstart, ystart
-    output_append("G1 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
+    output_append("G0 X" + xstart.toFixed(3) + " Y" + ystart.toFixed(3) + " F" + rapid);
     // lower pen
     output_append("G1" + zdn + " F" + vertical);
     // move to xend, yend
@@ -1008,7 +1008,7 @@ Questions, suggestions, feature requests are welcome.
       }
       
       output_append("G1" + zup + " F" + vertical);
-      output_append("G1 X0 Y0 F" + rapid);
+      output_append("G0 X0 Y0 F" + rapid);
       output_append("M501");
     }
     
