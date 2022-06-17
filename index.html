@@ -20,6 +20,7 @@
 <input type="radio" name="mode" value="y"> Y ruler<br>
 <input type="radio" name="mode" value="xy"> X and Y ruler<br>
 <input type="radio" name="mode" value="perim"> Perimeter ruler<br>
+<input type="radio" name="mode" value="squareness"> Squareness marks<br>
 <input type="radio" name="mode" value="ztest_corners"> Z test four corners<br>
 <input type="radio" name="mode" value="ztest_grid"> Z test grid<br>
 <input type="radio" name="mode" value="dense_segments"> Dense segments<br>
@@ -75,6 +76,11 @@ X and Y ruler draws both of the above.
 </li><li>
 Perimeter ruler draws four (pairs of) rulers around the perimeter within a rectangle whose dimensions are specified by X extent and Y extent.
 </li></ul>
+</div>
+<div id="squareness_desc">
+<h1>Squareness Marks</h1>
+<p>Draws four "L" shape marks in the corners of the specified X and Y extent.  These marks are possibly useful for indicating the extent of the workspace and can also be useful for testing squarenes.
+</p>
 </div>
 <div id="ztest_desc">
 <h1>Z-Test Mode</h1>
@@ -208,6 +214,13 @@ Questions, suggestions, feature requests are welcome.
     }
     else {
       $("div[id=ruler_desc]").hide();
+    }
+    
+    if (mode == "squareness") {
+      $("div[id=squareness_desc]").show();
+    }
+    else {
+      $("div[id=squareness_desc]").hide();
     }
     
     // zxsize is only used for ztest_corners and ztest_grid
@@ -799,6 +812,15 @@ Questions, suggestions, feature requests are welcome.
     output_append("G0" + zup + " F" + vertical);
   }
   
+  function double_line(sixcoords, zup, zdn, vertical, rapid, drawspeed) {
+    // expects to already be raised.  move to first point
+    output_append("G0 X" + sixcoords[0] + " Y" + sixcoords[1] + " F" + rapid);
+    output_append("G1" + zdn + " F" + vertical);
+    output_append("G1 X" + sixcoords[2] + " Y" + sixcoords[3] + " F" + drawspeed);
+    output_append("G1 X" + sixcoords[4] + " Y" + sixcoords[5] + " F" + drawspeed);
+    output_append("G0" + zup + " F" + vertical);
+  }
+  
   function generate() {
     // clear output in case it's been run already:
     document.getElementById('output').innerHTML = "";
@@ -865,6 +887,10 @@ Questions, suggestions, feature requests are welcome.
       output_append("; cutting feedrate: " + drawspeed + " mm/min");
     }
     
+    if (mode == "squareness") {
+      // no special parameters for squareness.  all the defaults (ruler parameters) are enough.
+    }
+    
     if (mode == "ztest_corners" || mode == "ztest_grid") {
       output_append("; zxsize: " + zxsize);
     }
@@ -926,6 +952,16 @@ Questions, suggestions, feature requests are welcome.
       x_zag(0, xsize, ysize-10, zup, zdn, rapid, vertical, drawspeed);
       y_zig(xsize-10, 0, ysize, zup, zdn, rapid, vertical, drawspeed);
       y_zag(xsize-10, 0, ysize, zup, zdn, rapid, vertical, drawspeed);
+    }
+    
+    if (mode == "squareness") {
+      output_append("G0" + zup + " F" + vertical);
+      double_line([0, 10, 0, 0, 10, 0], zup, zdn, vertical, rapid, drawspeed);
+      double_line([xsize-10, 0, xsize, 0, xsize, 10], zup, zdn, vertical, rapid, drawspeed);
+      double_line([xsize, ysize-10, xsize, ysize, xsize-10, ysize], zup, zdn, vertical, rapid, drawspeed);
+      double_line([10, ysize, 0, ysize, 0, ysize-10], zup, zdn, vertical, rapid, drawspeed);
+      // after last 'L' shape pen is up
+      output_append('G0 X0 Y0 F' + rapid);
     }
     
     if (mode == "ztest_corners") {
